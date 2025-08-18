@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Web Stack Spy",
+  "version": "1.0",
+  "description": "Analyzes web page content to detect technologies like frameworks and libraries.",
+  "permissions": [
+    "scripting",
+    "sidePanel",
+    "webNavigation",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "action": {
+    "default_title": "Web Stack Spy"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ]
+}
