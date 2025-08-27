@@ -146,13 +146,40 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   console.log('chrome.tabs.onUpdated.addListener called', { tabId, info, tab });
   // Clear stored detections when navigation starts so we don't show stale headers
   if (info.status === 'loading') {
-    // Don't delete header detections on navigation start; clear cached
-    // content-script technologies only so the UI can be refreshed while
-    // preserving server/poweredBy values until new ones arrive.
+    // On navigation start, clear cached content-script technologies so the
+    // UI can be refreshed. Additionally, if this is the tab with the side
+    // panel and the navigation changes origin, clear previous header
+    // detections (server / poweredBy) so new server headers can populate.
     const entry = tabDetections.get(tabId);
     if (entry) {
       entry.technologies = [];
+
+      // Determine the new visible URL if available (tab.url is preferred)
+      const newVisibleUrl = (tab && tab.url) ? tab.url : (info.url || null);
+      if (tabId === panelOpenTabId && panelOpenTabUrl && newVisibleUrl) {
+        try {
+          const prev = new URL(panelOpenTabUrl);
+          const next = new URL(newVisibleUrl);
+          if (prev.origin !== next.origin) {
+            // navigation moved to a different origin: clear header detections
+            entry.servers = new Set();
+            entry.poweredBy = new Set();
+            // Notify side panel (if present) that headers are cleared
+            const httpHeaders = { servers: [], poweredBy: [] };
+            chrome.runtime.sendMessage({ action: 'updateHttpHeaders', tabId, httpHeaders }, (res) => {
+              if (chrome.runtime.lastError) {
+                console.debug('updateHttpHeaders message had no receiver', chrome.runtime.lastError);
+              }
+            });
+          }
+        } catch (e) {
+          // If URL parsing fails, conservatively keep previous headers and
+          // let the webRequest listener update them when responses arrive.
+          console.debug('URL parse failed while comparing origins', e);
+        }
+      }
     }
+
     try {
       chrome.runtime.sendMessage({ action: 'clearTechs', tabId }, (res) => {
         if (chrome.runtime.lastError) {
@@ -171,6 +198,29 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   }
 
   if (info.status === 'complete' && tab.url) {
+    // If navigation completed and this is the panel tab, clear header
+    // detections if the origin changed compared to the cached visible URL.
+    if (panelOpenTabId === tabId && panelOpenTabUrl) {
+      try {
+        const prev = new URL(panelOpenTabUrl);
+        const next = new URL(tab.url);
+        if (prev.origin !== next.origin) {
+          const entry = tabDetections.get(tabId);
+          if (entry) {
+            entry.servers = new Set();
+            entry.poweredBy = new Set();
+          }
+          const httpHeaders = { servers: [], poweredBy: [] };
+          chrome.runtime.sendMessage({ action: 'updateHttpHeaders', tabId, httpHeaders }, (res) => {
+            if (chrome.runtime.lastError) {
+              console.debug('updateHttpHeaders message had no receiver', chrome.runtime.lastError);
+            }
+          });
+        }
+      } catch (e) {
+        console.debug('URL parse failed while comparing origins on complete', e);
+      }
+    }
     chrome.tabs.sendMessage(tabId, { action: 'analyze' }, (response) => {
       if (chrome.runtime.lastError) {
         // ...existing code...
