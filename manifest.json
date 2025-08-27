@@ -6,7 +6,8 @@
   "permissions": [
     "scripting",
     "sidePanel",
-    "webNavigation",
+  "webNavigation",
+  "webRequest",
     "tabs"
   ],
   "host_permissions": [
@@ -14,9 +15,6 @@
   ],
   "background": {
     "service_worker": "background.js"
-  },
-  "side_panel": {
-    "default_path": "sidepanel.html"
   },
   "action": {
     "default_title": "Web Stack Spy"
