@@ -10,9 +10,18 @@
   <h1 class="text-4xl">webstackspy</h1>
   <div class="container mx-auto p-4">
     <h1 class="text-2xl font-bold mb-4">Detected Technologies</h1>
+    <!-- Header-based detections (Server, Powered-By) -->
+    <ul id="header-list" class="menu bg-base-200 w-56 rounded-box mb-2">
+      <!-- HTTP header detections will be listed here -->
+    </ul>
+    <!-- HTML/content-script based detections -->
     <ul id="tech-list" class="menu bg-base-200 w-56 rounded-box">
       <!-- Detected technologies will be listed here -->
     </ul>
+    <div class="mt-4">
+      <button id="dump-btn" class="btn btn-sm">Dump tabDetections</button>
+      <pre id="dump-area" class="mt-2 bg-base-300 p-2 rounded w-full overflow-auto" style="max-height:200px;"></pre>
+    </div>
   </div>
   <script src="sidepanel.js"></script>
 </body>
