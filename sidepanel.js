@@ -152,6 +152,13 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     }
   });
 
+  // Request content analysis for this tab now that the panel is ready
+  try {
+    chrome.runtime.sendMessage({ action: 'requestAnalyze', tabId }, () => {});
+  } catch (e) {
+    // ignore
+  }
+
   // Inform background when the panel is unloaded/closed so it can stop
   // assuming the panel is listening for this tab.
   window.addEventListener('unload', () => {

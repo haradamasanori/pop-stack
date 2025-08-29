@@ -1,12 +1,10 @@
 
-// Keep track of which tabs have the side panel enabled (user opened it)
-const enabledTabs = new Set();
-
 // Keep a per-tab store of detected headers / server info
 // entry shape: { url: string|null, servers: Set, poweredBy: Set, technologies: [] }
 const tabDetections = new Map(); // tabId -> entry
-// Track which tabs currently have a listening panel script
-const readyPanels = new Set();
+// Track the single side panel instance state for the window
+let panelReady = false;
+let panelOpenTabId = null;
 
 function recordHeaderDetection(tabId, headerName, headerValue) {
   if (!tabId) return;
@@ -27,8 +25,8 @@ function recordHeaderDetection(tabId, headerName, headerValue) {
     servers: Array.from(entry.servers),
     poweredBy: Array.from(entry.poweredBy)
   };
-  // Only send to the panel if it's listening for this tab
-  if (readyPanels.has(tabId)) {
+  // Only send to the panel if it is ready and showing this tab
+  if (panelReady && panelOpenTabId === tabId) {
     chrome.runtime.sendMessage({ action: 'updateHttpHeaders', tabId, httpHeaders }, (res) => {});
   }
 }
@@ -40,9 +38,9 @@ try {
     (details) => {
       // details.tabId may be -1 for non-tab resources; ignore those
       const tabId = details.tabId;
-  // Only inspect responses for tabs where the side panel is enabled
+  // Only inspect responses for tabs where the side panel is enabled (panel ready)
   if (typeof tabId !== 'number' || tabId < 0) return;
-  if (!enabledTabs.has(tabId)) return;
+  if (!panelReady || panelOpenTabId !== tabId) return;
 
       // Accept responses that are the main document. Some Chrome builds may not
       // set details.type reliably; treat frameId===0 as main frame too.
@@ -91,8 +89,6 @@ chrome.action.onClicked.addListener((tab) => {
   // await this call, but handle the promise to log errors.
   chrome.sidePanel.open({ tabId: tab.id })
     .then(() => {
-      // mark this tab as enabled so we analyze its network responses
-      enabledTabs.add(tab.id);
       // ensure an entry exists for this tab and store the visible URL
       let entry = tabDetections.get(tab.id);
       if (!entry) {
@@ -115,20 +111,18 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
   // Leaving `panelOpenTabId` set lets Chrome automatically show the
   // tab-specific side panel again when the user switches back to that tab.
   const { tabId } = activeInfo;
-  console.log('Tab activated', tabId, 'panel enabled for tab?', enabledTabs.has(tabId));
+  console.log('Tab activated', tabId, 'panel ready for tab?', panelReady && panelOpenTabId === tabId);
 });
 
 // When a tab is closed, ensure any tab-specific panel options are cleaned up.
 chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
   // If the side panel was enabled for this tab, disable it and notify UI
-  if (enabledTabs.has(tabId)) {
-    try {
-      await chrome.sidePanel.setOptions({ tabId, enabled: false });
-      console.log('Disabled side panel for removed tab', tabId);
-    } catch (e) {
-      console.warn('Failed to disable side panel for removed tab', tabId, e);
-    }
-    enabledTabs.delete(tabId);
+  // (we rely on panelReady/panelClosed to track readiness)
+  try {
+    await chrome.sidePanel.setOptions({ tabId, enabled: false });
+    console.log('Disabled side panel for removed tab', tabId);
+  } catch (e) {
+    // non-fatal
   }
   // clean up any stored header detections for the removed tab and notify
   if (tabDetections.has(tabId)) {
@@ -149,8 +143,8 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
     if (entry) {
       entry.technologies = [];
     }
-    const newVisibleUrl = (tab && tab.url) ? tab.url : (info.url || null);
-    if (enabledTabs.has(tabId) && entry && entry.url && newVisibleUrl) {
+  const newVisibleUrl = (tab && tab.url) ? tab.url : (info.url || null);
+  if (panelReady && panelOpenTabId === tabId && entry && entry.url && newVisibleUrl) {
       try {
         const prev = new URL(entry.url);
         const next = new URL(newVisibleUrl);
@@ -158,11 +152,10 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
           entry.servers = new Set();
           entry.poweredBy = new Set();
           const httpHeaders = { servers: [], poweredBy: [] };
-          chrome.runtime.sendMessage({ action: 'updateHttpHeaders', tabId, httpHeaders }, (res) => {
-            if (chrome.runtime.lastError) {
-              console.debug('updateHttpHeaders message had no receiver', chrome.runtime.lastError);
-            }
-          });
+          // Only notify panel if it's ready for this tab
+          if (panelReady && panelOpenTabId === tabId) {
+            chrome.runtime.sendMessage({ action: 'updateHttpHeaders', tabId, httpHeaders }, (res) => {});
+          }
         }
       } catch (e) {
         console.debug('URL parse failed while comparing origins', e);
@@ -192,7 +185,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   if (info.status === 'complete' && tab.url) {
     // If navigation completed, and this tab is enabled, clear header
     // detections if the origin changed compared to the stored entry.url.
-    if (enabledTabs.has(tabId)) {
+    if (panelReady && panelOpenTabId === tabId) {
       const entry = tabDetections.get(tabId);
       if (entry && entry.url) {
         try {
@@ -202,7 +195,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
             entry.servers = new Set();
             entry.poweredBy = new Set();
             const httpHeaders = { servers: [], poweredBy: [] };
-            if (readyPanels.has(tabId)) {
+            if (panelReady && panelOpenTabId === tabId) {
               chrome.runtime.sendMessage({ action: 'updateHttpHeaders', tabId, httpHeaders }, () => {});
             }
           }
@@ -211,16 +204,16 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
         }
       }
     }
-    // Only request content analysis for tabs where the side panel is enabled
-    if (enabledTabs.has(tabId)) {
+  // Only request content analysis for tabs where the side panel is ready
+  if (panelReady && panelOpenTabId === tabId) {
       chrome.tabs.sendMessage(tabId, { action: 'analyze' }, (response) => {
         if (chrome.runtime.lastError) {
           // ...existing code...
         }
       });
     }
-    // If this tab has the panel enabled, keep it open after navigation
-    if (enabledTabs.has(tabId)) {
+    // If this tab currently has the side panel open, keep it open after navigation
+    if (panelReady && panelOpenTabId === tabId) {
       chrome.sidePanel.open({ tabId });
       console.log('Side panel re-opened for tab after navigation', tabId);
     }
@@ -233,7 +226,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'panelReady') {
     const tabId = message.tabId || (sender && sender.tab && sender.tab.id);
     if (tabId) {
-      readyPanels.add(tabId);
+      panelReady = true;
+      panelOpenTabId = tabId;
       // send current state for this tab, if present
       const entry = tabDetections.get(tabId);
       const payload = entry ? { technologies: entry.technologies || [], httpHeaders: { servers: Array.from(entry.servers), poweredBy: Array.from(entry.poweredBy) } } : { technologies: [], httpHeaders: { servers: [], poweredBy: [] } };
@@ -244,7 +238,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message.action === 'panelClosed') {
     const tabId = message.tabId || (sender && sender.tab && sender.tab.id);
-    if (tabId) readyPanels.delete(tabId);
+    if (tabId && panelOpenTabId === tabId) {
+      panelReady = false;
+      panelOpenTabId = null;
+    }
+    return;
+  }
+  if (message.action === 'requestAnalyze') {
+    const tabId = message.tabId || (sender && sender.tab && sender.tab.id);
+    if (tabId) {
+      chrome.tabs.sendMessage(tabId, { action: 'analyze' }, () => {});
+    }
     return;
   }
   // Store detections sent from content scripts so background can serve them
@@ -258,8 +262,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         tabDetections.set(tabId, entry);
       }
       entry.technologies = Array.isArray(message.technologies) ? message.technologies : [];
-      // Forward to side panel UI only if it has signaled readiness for this tab
-      if (readyPanels.has(tabId)) {
+      // Forward to side panel UI only if the single panel instance is ready and showing this tab
+      if (panelReady && panelOpenTabId === tabId) {
         chrome.runtime.sendMessage({ action: 'updateTechList', technologies: entry.technologies }, () => {});
       }
     }

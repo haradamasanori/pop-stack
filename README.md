@@ -56,7 +56,7 @@ In order to minimize the negative impact to browsing performance, analysis is do
 - Closing the side panel doesn't clear the results. Re-opening the side panel and it immediately shows the results stored in the map.
 
 Hints for implementing the above requirements:
-- Setting PanelBehavior with openPanelOnActionClick: true is sufficient to toggle the side panel with the action button.  The extension doesn't register a global side panel in the manifest.
+- Setting PanelBehavior with openPanelOnActionClick: true is sufficient to toggle the side panel with the action button. The extension doesn't register a global side panel in the manifest.
 - Chrome Extension side panel's open/close state is per tab if we set PanelOptions without tabId field.
 - Messages are passed between content.js and sidepanel.js. background.js can contain minimal initialization code that should run before the side panel is opened.
 - When there are multiple Chrome windows, different windows have different side panel instances. Each side panel instance can handle tabs on the same window only.
