@@ -1,10 +1,12 @@
 
-// Track which tab has the side panel open
-let panelOpenTabId = null;
-let panelOpenTabUrl = null;
+// Keep track of which tabs have the side panel enabled (user opened it)
+const enabledTabs = new Set();
 
 // Keep a per-tab store of detected headers / server info
-const tabDetections = new Map(); // tabId -> { servers: Set, poweredBy: Set }
+// entry shape: { url: string|null, servers: Set, poweredBy: Set, technologies: [] }
+const tabDetections = new Map(); // tabId -> entry
+// Track which tabs currently have a listening panel script
+const readyPanels = new Set();
 
 function recordHeaderDetection(tabId, headerName, headerValue) {
   if (!tabId) return;
@@ -25,12 +27,10 @@ function recordHeaderDetection(tabId, headerName, headerValue) {
     servers: Array.from(entry.servers),
     poweredBy: Array.from(entry.poweredBy)
   };
-  chrome.runtime.sendMessage({ action: 'updateHttpHeaders', tabId, httpHeaders }, (res) => {
-    if (chrome.runtime.lastError) {
-      // Expected if no listener exists in the side panel; log at debug level.
-      console.debug('runtime.sendMessage to side panel failed (no listener?)', chrome.runtime.lastError);
-    }
-  });
+  // Only send to the panel if it's listening for this tab
+  if (readyPanels.has(tabId)) {
+    chrome.runtime.sendMessage({ action: 'updateHttpHeaders', tabId, httpHeaders }, (res) => {});
+  }
 }
 
 // webRequest listener to inspect response headers
@@ -40,26 +40,17 @@ try {
     (details) => {
       // details.tabId may be -1 for non-tab resources; ignore those
       const tabId = details.tabId;
-      // Only inspect responses for the tab that has the side panel open
-      if (typeof tabId !== 'number' || tabId < 0) return;
-      if (panelOpenTabId === null || tabId !== panelOpenTabId) return;
+  // Only inspect responses for tabs where the side panel is enabled
+  if (typeof tabId !== 'number' || tabId < 0) return;
+  if (!enabledTabs.has(tabId)) return;
 
       // Accept responses that are the main document. Some Chrome builds may not
       // set details.type reliably; treat frameId===0 as main frame too.
       if (details.type && details.type !== 'main_frame' && details.frameId !== 0) return;
 
-      // Match the visible address bar URL. Use origin match (preferred) or exact
-      // href as a fallback to tolerate redirects that remain on the same origin.
-      if (panelOpenTabUrl) {
-        try {
-          const resUrl = new URL(details.url);
-          const visibleUrl = new URL(panelOpenTabUrl);
-          if (resUrl.href !== visibleUrl.href && resUrl.origin !== visibleUrl.origin) return;
-        } catch (e) {
-          // If URL parsing fails, fall back to strict equality
-          if (details.url !== panelOpenTabUrl) return;
-        }
-      }
+  // We accept main-frame responses for enabled tabs; per-tab URL tracking
+  // is used elsewhere to decide when to clear header detections on origin
+  // changes.
       if (details.responseHeaders) {
         console.log('webRequest.onHeadersReceived', { tabId, url: details.url, responseHeaders: details.responseHeaders });
         for (const h of details.responseHeaders) {
@@ -100,8 +91,16 @@ chrome.action.onClicked.addListener((tab) => {
   // await this call, but handle the promise to log errors.
   chrome.sidePanel.open({ tabId: tab.id })
     .then(() => {
-      panelOpenTabId = tab.id;
-      panelOpenTabUrl = tab.url || null;
+      // mark this tab as enabled so we analyze its network responses
+      enabledTabs.add(tab.id);
+      // ensure an entry exists for this tab and store the visible URL
+      let entry = tabDetections.get(tab.id);
+      if (!entry) {
+        entry = { url: tab.url || null, servers: new Set(), poweredBy: new Set(), technologies: [] };
+        tabDetections.set(tab.id, entry);
+      } else {
+        entry.url = tab.url || entry.url || null;
+      }
       console.log('Side panel enabled and opened for tab', tab.id);
     })
     .catch((err) => {
@@ -116,29 +115,25 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
   // Leaving `panelOpenTabId` set lets Chrome automatically show the
   // tab-specific side panel again when the user switches back to that tab.
   const { tabId } = activeInfo;
-  console.log('Tab activated', tabId, 'current panelOpenTabId', panelOpenTabId);
+  console.log('Tab activated', tabId, 'panel enabled for tab?', enabledTabs.has(tabId));
 });
 
 // When a tab is closed, ensure any tab-specific panel options are cleaned up.
 chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
-  if (panelOpenTabId === tabId) {
+  // If the side panel was enabled for this tab, disable it and notify UI
+  if (enabledTabs.has(tabId)) {
     try {
       await chrome.sidePanel.setOptions({ tabId, enabled: false });
       console.log('Disabled side panel for removed tab', tabId);
     } catch (e) {
       console.warn('Failed to disable side panel for removed tab', tabId, e);
     }
-    panelOpenTabId = null;
-  
-  if (panelOpenTabUrl && panelOpenTabUrl.tabId === tabId) {
-    panelOpenTabUrl = null;
-  } else if (panelOpenTabId === null) {
-    panelOpenTabUrl = null;
+    enabledTabs.delete(tabId);
   }
-  }
-  // clean up any stored header detections for the removed tab
+  // clean up any stored header detections for the removed tab and notify
   if (tabDetections.has(tabId)) {
     tabDetections.delete(tabId);
+    chrome.runtime.sendMessage({ action: 'removeTab', tabId }, () => {});
   }
 });
 
@@ -147,36 +142,30 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   // Clear stored detections when navigation starts so we don't show stale headers
   if (info.status === 'loading') {
     // On navigation start, clear cached content-script technologies so the
-    // UI can be refreshed. Additionally, if this is the tab with the side
-    // panel and the navigation changes origin, clear previous header
-    // detections (server / poweredBy) so new server headers can populate.
-    const entry = tabDetections.get(tabId);
+    // UI can be refreshed. Additionally, if this tab is enabled and the
+    // navigation changes origin, clear previous header detections so new
+    // server headers can populate.
+    let entry = tabDetections.get(tabId);
     if (entry) {
       entry.technologies = [];
-
-      // Determine the new visible URL if available (tab.url is preferred)
-      const newVisibleUrl = (tab && tab.url) ? tab.url : (info.url || null);
-      if (tabId === panelOpenTabId && panelOpenTabUrl && newVisibleUrl) {
-        try {
-          const prev = new URL(panelOpenTabUrl);
-          const next = new URL(newVisibleUrl);
-          if (prev.origin !== next.origin) {
-            // navigation moved to a different origin: clear header detections
-            entry.servers = new Set();
-            entry.poweredBy = new Set();
-            // Notify side panel (if present) that headers are cleared
-            const httpHeaders = { servers: [], poweredBy: [] };
-            chrome.runtime.sendMessage({ action: 'updateHttpHeaders', tabId, httpHeaders }, (res) => {
-              if (chrome.runtime.lastError) {
-                console.debug('updateHttpHeaders message had no receiver', chrome.runtime.lastError);
-              }
-            });
-          }
-        } catch (e) {
-          // If URL parsing fails, conservatively keep previous headers and
-          // let the webRequest listener update them when responses arrive.
-          console.debug('URL parse failed while comparing origins', e);
+    }
+    const newVisibleUrl = (tab && tab.url) ? tab.url : (info.url || null);
+    if (enabledTabs.has(tabId) && entry && entry.url && newVisibleUrl) {
+      try {
+        const prev = new URL(entry.url);
+        const next = new URL(newVisibleUrl);
+        if (prev.origin !== next.origin) {
+          entry.servers = new Set();
+          entry.poweredBy = new Set();
+          const httpHeaders = { servers: [], poweredBy: [] };
+          chrome.runtime.sendMessage({ action: 'updateHttpHeaders', tabId, httpHeaders }, (res) => {
+            if (chrome.runtime.lastError) {
+              console.debug('updateHttpHeaders message had no receiver', chrome.runtime.lastError);
+            }
+          });
         }
+      } catch (e) {
+        console.debug('URL parse failed while comparing origins', e);
       }
     }
 
@@ -193,41 +182,45 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   }
 
   // If the tab with the side panel navigates, update the cached visible URL
-  if (panelOpenTabId === tabId && tab && tab.url) {
-    panelOpenTabUrl = tab.url;
+  if (tab && tab.url) {
+    let entry = tabDetections.get(tabId);
+    if (!entry) entry = { url: tab.url, servers: new Set(), poweredBy: new Set(), technologies: [] };
+    entry.url = tab.url;
+    tabDetections.set(tabId, entry);
   }
 
   if (info.status === 'complete' && tab.url) {
-    // If navigation completed and this is the panel tab, clear header
-    // detections if the origin changed compared to the cached visible URL.
-    if (panelOpenTabId === tabId && panelOpenTabUrl) {
-      try {
-        const prev = new URL(panelOpenTabUrl);
-        const next = new URL(tab.url);
-        if (prev.origin !== next.origin) {
-          const entry = tabDetections.get(tabId);
-          if (entry) {
+    // If navigation completed, and this tab is enabled, clear header
+    // detections if the origin changed compared to the stored entry.url.
+    if (enabledTabs.has(tabId)) {
+      const entry = tabDetections.get(tabId);
+      if (entry && entry.url) {
+        try {
+          const prev = new URL(entry.url);
+          const next = new URL(tab.url);
+          if (prev.origin !== next.origin) {
             entry.servers = new Set();
             entry.poweredBy = new Set();
-          }
-          const httpHeaders = { servers: [], poweredBy: [] };
-          chrome.runtime.sendMessage({ action: 'updateHttpHeaders', tabId, httpHeaders }, (res) => {
-            if (chrome.runtime.lastError) {
-              console.debug('updateHttpHeaders message had no receiver', chrome.runtime.lastError);
+            const httpHeaders = { servers: [], poweredBy: [] };
+            if (readyPanels.has(tabId)) {
+              chrome.runtime.sendMessage({ action: 'updateHttpHeaders', tabId, httpHeaders }, () => {});
             }
-          });
+          }
+        } catch (e) {
+          console.debug('URL parse failed while comparing origins on complete', e);
         }
-      } catch (e) {
-        console.debug('URL parse failed while comparing origins on complete', e);
       }
     }
-    chrome.tabs.sendMessage(tabId, { action: 'analyze' }, (response) => {
-      if (chrome.runtime.lastError) {
-        // ...existing code...
-      }
-    });
-    // If the panel was open for this tab before navigation, keep it open
-    if (panelOpenTabId === tabId) {
+    // Only request content analysis for tabs where the side panel is enabled
+    if (enabledTabs.has(tabId)) {
+      chrome.tabs.sendMessage(tabId, { action: 'analyze' }, (response) => {
+        if (chrome.runtime.lastError) {
+          // ...existing code...
+        }
+      });
+    }
+    // If this tab has the panel enabled, keep it open after navigation
+    if (enabledTabs.has(tabId)) {
       chrome.sidePanel.open({ tabId });
       console.log('Side panel re-opened for tab after navigation', tabId);
     }
@@ -236,6 +229,24 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('chrome.runtime.onMessage.addListener called', { message, sender });
+  // Handle panel handshake messages first
+  if (message.action === 'panelReady') {
+    const tabId = message.tabId || (sender && sender.tab && sender.tab.id);
+    if (tabId) {
+      readyPanels.add(tabId);
+      // send current state for this tab, if present
+      const entry = tabDetections.get(tabId);
+      const payload = entry ? { technologies: entry.technologies || [], httpHeaders: { servers: Array.from(entry.servers), poweredBy: Array.from(entry.poweredBy) } } : { technologies: [], httpHeaders: { servers: [], poweredBy: [] } };
+      chrome.runtime.sendMessage({ action: 'updateTechList', technologies: payload.technologies }, () => {});
+      chrome.runtime.sendMessage({ action: 'updateHttpHeaders', httpHeaders: payload.httpHeaders }, () => {});
+    }
+    return; // handled
+  }
+  if (message.action === 'panelClosed') {
+    const tabId = message.tabId || (sender && sender.tab && sender.tab.id);
+    if (tabId) readyPanels.delete(tabId);
+    return;
+  }
   // Store detections sent from content scripts so background can serve them
   // directly to the side panel without needing an immediate tabs.sendMessage.
   if (message.action === 'detectedTechs') {
@@ -247,12 +258,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         tabDetections.set(tabId, entry);
       }
       entry.technologies = Array.isArray(message.technologies) ? message.technologies : [];
-      // Forward to side panel UI (if present)
-      chrome.runtime.sendMessage({ action: 'updateTechList', technologies: entry.technologies }, (res) => {
-        if (chrome.runtime.lastError) {
-          console.debug('updateTechList message had no receiver', chrome.runtime.lastError);
-        }
-      });
+      // Forward to side panel UI only if it has signaled readiness for this tab
+      if (readyPanels.has(tabId)) {
+        chrome.runtime.sendMessage({ action: 'updateTechList', technologies: entry.technologies }, () => {});
+      }
     }
     return; // handled
   }

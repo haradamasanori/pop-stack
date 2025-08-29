@@ -6,8 +6,8 @@
   "permissions": [
     "scripting",
     "sidePanel",
-  "webNavigation",
-  "webRequest",
+    "webNavigation",
+    "webRequest",
     "tabs"
   ],
   "host_permissions": [

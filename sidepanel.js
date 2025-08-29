@@ -135,14 +135,30 @@ requestDump();
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   console.log('chrome.tabs.query called', { tabs });
   const tabId = tabs[0].id;
+  // Notify background that the panel is ready to receive updates for this tab
+  chrome.runtime.sendMessage({ action: 'panelReady', tabId }, (res) => {
+    // ignore response; background will send current state after registering readiness
+  });
+
+  // Request the current merged detections for the tab
   chrome.runtime.sendMessage({ action: 'getDetectedTechs', tabId: tabId }, (response) => {
-  console.log('chrome.runtime.sendMessage callback called', { tabId, response });
+    console.log('chrome.runtime.sendMessage callback called', { tabId, response });
     if (response) {
-  // Populate current state from response and render merged UI
-  currentTechs = response.technologies || [];
-  currentHttpHeaders = response.httpHeaders || { servers: [], poweredBy: [] };
-  renderCombinedList();
-  updateHttpHeaders(currentHttpHeaders);
+      // Populate current state from response and render merged UI
+      currentTechs = response.technologies || [];
+      currentHttpHeaders = response.httpHeaders || { servers: [], poweredBy: [] };
+      renderCombinedList();
+      updateHttpHeaders(currentHttpHeaders);
+    }
+  });
+
+  // Inform background when the panel is unloaded/closed so it can stop
+  // assuming the panel is listening for this tab.
+  window.addEventListener('unload', () => {
+    try {
+      chrome.runtime.sendMessage({ action: 'panelClosed', tabId });
+    } catch (e) {
+      // ignore
     }
   });
 });
