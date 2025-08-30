@@ -71,19 +71,5 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Indicates that the response is sent asynchronously
   }
 });
-
-
-// Store detected technologies and send to side panel
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === 'detectedTechs') {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs.length > 0) {
-        const tabId = tabs[0].id;
-        detectedTechsByTab[tabId] = message.technologies;
-        chrome.runtime.sendMessage({ action: 'updateTechList', technologies: message.technologies });
-      }
-    });
-  }
-});
-
-analyzeContent();
+// Note: content script no longer auto-runs analysis on load. Analysis is
+// performed when the side panel requests it (via background forwarding).
