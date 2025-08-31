@@ -45,24 +45,48 @@ try {
       // set details.type reliably; treat frameId===0 as main frame too.
       if (details.type && details.type !== 'main_frame' && details.frameId !== 0) return;
 
-      // We accept main-frame responses for enabled tabs; per-tab URL tracking
-      // is used elsewhere to decide when to clear header detections on origin
-      // changes.
-      if (details.responseHeaders) {
-        console.log('webRequest.onHeadersReceived', { tabId, url: details.url, responseHeaders: details.responseHeaders });
-        for (const h of details.responseHeaders) {
-          if (!h || !h.name) continue;
-          const name = h.name.toLowerCase();
-          const value = h.value || '';
-          if (name === 'server' || name === 'x-powered-by' || name === 'x-generator') {
-            recordHeaderDetection(tabId, name, value);
-          }
+      // Filter by URL - only analyze HTML pages
+      try {
+        const requestUrl = new URL(details.url);
+        const pathname = requestUrl.pathname.toLowerCase();
+        
+        // Skip non-HTML resources
+        const nonHtmlExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico', 
+                                  '.css', '.js', '.json', '.xml', '.pdf', '.zip', '.mp4', 
+                                  '.mp3', '.wav', '.woff', '.woff2', '.ttf', '.eot'];
+        
+        if (nonHtmlExtensions.some(ext => pathname.endsWith(ext))) {
+          return; // Skip non-HTML resources
         }
+
+        // Process headers for HTML resources (remove hostname filtering for now)
+        processResponseHeaders(details, tabId);
+      } catch (e) {
+        console.debug('URL parse failed for request', e);
+        // If URL parsing fails, still try to process headers
+        processResponseHeaders(details, tabId);
       }
     },
     { urls: ['<all_urls>'] },
     ['responseHeaders', 'extraHeaders']  // include extraHeaders to capture more headers
   );
+
+function processResponseHeaders(details, tabId) {
+  // We accept main-frame responses for enabled tabs; per-tab URL tracking
+  // is used elsewhere to decide when to clear header detections on origin
+  // changes.
+  if (details.responseHeaders) {
+    console.log('webRequest.onHeadersReceived', { tabId, url: details.url, responseHeaders: details.responseHeaders });
+    for (const h of details.responseHeaders) {
+      if (!h || !h.name) continue;
+      const name = h.name.toLowerCase();
+      const value = h.value || '';
+      if (name === 'server' || name === 'x-powered-by' || name === 'x-generator') {
+        recordHeaderDetection(tabId, name, value);
+      }
+    }
+  }
+}
   console.log('webRequest.onHeadersReceived listener registered');
 } catch (e) {
   console.warn('webRequest.onHeadersReceived not available or blocked', e);
