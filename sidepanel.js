@@ -1,11 +1,10 @@
 const techList = document.getElementById('tech-list');
-const headerList = document.getElementById('header-list');
 const dumpBtn = document.getElementById('dump-btn');
 const dumpArea = document.getElementById('dump-area');
 
 // Maintain current state so we can render a merged view
 let currentTechs = [];
-let currentHttpHeaders = { servers: [], poweredBy: [] };
+let currentHeaderTechs = [];
 
 function createTechCard(tech) {
   const isRichObject = typeof tech === 'object' && tech.name;
@@ -65,61 +64,26 @@ function createTechCard(tech) {
 }
 
 function renderCombinedList() {
-  // Build a merged list: header-derived items first, then HTML-detected techs
+  // Build a unified list of all detected technologies
   techList.innerHTML = '';
   const added = new Set();
+  const allTechs = [];
 
-  // Add header-derived entries as cards
-  if (currentHttpHeaders.servers?.length) {
-    const serverHeader = document.createElement('h4');
-    serverHeader.className = 'text-sm font-semibold mb-2 text-base-content/80';
-    serverHeader.textContent = 'Server:';
-    techList.appendChild(serverHeader);
-    
-    currentHttpHeaders.servers.forEach(s => {
-      if (!added.has(s)) {
-        const card = createTechCard({ name: s, description: 'HTTP Server', tags: ['http_server'] });
-        techList.appendChild(card);
-        added.add(s);
-      }
-    });
-  }
-  
-  if (currentHttpHeaders.poweredBy?.length) {
-    const poweredByHeader = document.createElement('h4');
-    poweredByHeader.className = 'text-sm font-semibold mb-2 mt-4 text-base-content/80';
-    poweredByHeader.textContent = 'X-Powered-By:';
-    techList.appendChild(poweredByHeader);
-    
-    currentHttpHeaders.poweredBy.forEach(p => {
-      if (!added.has(p)) {
-        const card = createTechCard({ name: p, description: 'Web Framework/Runtime', tags: ['web_framework'] });
-        techList.appendChild(card);
-        added.add(p);
-      }
-    });
-  }
-
-  // Add HTML-detected techs as rich cards, avoiding duplicates
-  if (currentTechs.length > 0) {
-    if (currentHttpHeaders.servers?.length || currentHttpHeaders.poweredBy?.length) {
-      const htmlHeader = document.createElement('h4');
-      htmlHeader.className = 'text-sm font-semibold mb-2 mt-4 text-base-content/80';
-      htmlHeader.textContent = 'Detected from HTML:';
-      techList.appendChild(htmlHeader);
+  // Combine HTML and Header detected technologies
+  [...currentTechs, ...currentHeaderTechs].forEach(tech => {
+    const techName = typeof tech === 'object' ? tech.name : tech;
+    if (!added.has(techName)) {
+      allTechs.push(tech);
+      added.add(techName);
     }
-    
-    currentTechs.forEach(tech => {
-      const techName = typeof tech === 'object' ? tech.name : tech;
-      if (added.has(techName)) return;
-      
+  });
+
+  if (allTechs.length > 0) {
+    allTechs.forEach(tech => {
       const card = createTechCard(tech);
       techList.appendChild(card);
-      added.add(techName);
     });
-  }
-
-  if (techList.children.length === 0) {
+  } else {
     const emptyState = document.createElement('div');
     emptyState.className = 'text-center text-base-content/60 py-8';
     emptyState.innerHTML = '<p>No technologies detected.</p><p class="text-xs mt-1">Try visiting a different website.</p>';
@@ -142,20 +106,15 @@ function updateTechList(technologies) {
   renderCombinedList();
 }
 
-function updateHttpHeaders(httpHeaders) {
-  console.log('updateHttpHeaders called', { httpHeaders });
-  // Deduplicate arrays to ensure no duplicate servers/poweredBy values
-  currentHttpHeaders = {
-    servers: httpHeaders?.servers ? [...new Set(httpHeaders.servers)] : [],
-    poweredBy: httpHeaders?.poweredBy ? [...new Set(httpHeaders.poweredBy)] : []
-  };
-  // Hide the separate header list since we show everything in the combined list
-  headerList.innerHTML = '';
+function updateHeaderTechs(headerTechs) {
+  console.log('updateHeaderTechs called', { headerTechs });
+  // Update header-detected technologies
+  currentHeaderTechs = Array.isArray(headerTechs) ? headerTechs : [];
 
   // Re-render combined tech list so header changes are reflected there too
   renderCombinedList();
 
-  // Auto-refresh dump area when headers update
+  // Auto-refresh dump area when header techs update
   if (dumpArea.textContent !== '') requestDump();
 }
 
@@ -170,12 +129,12 @@ function renderDump(entry) {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('chrome.runtime.onMessage.addListener called', { message, sender });
   if (message.action === 'updateTechList') {
-  updateTechList(message.technologies);
-  } else if (message.action === 'updateHttpHeaders') {
-  updateHttpHeaders(message.httpHeaders || { servers: [], poweredBy: [] });
+    updateTechList(message.technologies);
+  } else if (message.action === 'updateHeaderTechs') {
+    updateHeaderTechs(message.headerTechs || []);
   } else if (message.action === 'clearTechs') {
     techList.innerHTML = '';
-  requestDump();
+    requestDump();
   }
 });
 
@@ -211,9 +170,8 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     if (response) {
       // Populate current state from response and render merged UI
       currentTechs = response.technologies || [];
-      currentHttpHeaders = response.httpHeaders || { servers: [], poweredBy: [] };
+      currentHeaderTechs = response.headerTechs || [];
       renderCombinedList();
-      updateHttpHeaders(currentHttpHeaders);
     }
   });
 

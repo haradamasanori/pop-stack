@@ -1,32 +1,82 @@
 
-// Keep a per-tab store of detected headers / server info
-// entry shape: { url: string|null, servers: Set, poweredBy: Set, technologies: [] }
+// Keep a per-tab store of detected technologies
+// entry shape: { url: string|null, technologies: [], headerTechs: Map }
 const tabDetections = new Map(); // tabId -> entry
 // Track which tabs currently have a listening side panel instance
 const readyPanels = new Set();
+// Cache for configuration
+let techConfig = null;
 
-function recordHeaderDetection(tabId, headerName, headerValue) {
-  if (!tabId) return;
+// Load configuration
+async function loadConfig() {
+  if (techConfig) return techConfig;
+  try {
+    const configUrl = chrome.runtime.getURL('config.json');
+    const response = await fetch(configUrl);
+    techConfig = await response.json();
+    console.log('Background: Configuration loaded:', Object.keys(techConfig).length, 'technologies');
+    return techConfig;
+  } catch (error) {
+    console.error('Background: Failed to load config.json:', error);
+    techConfig = {};
+    return techConfig;
+  }
+}
+
+async function detectTechnologiesFromHeaders(tabId, responseHeaders) {
+  if (!tabId || !responseHeaders) return;
+  
+  // Ensure config is loaded
+  if (!techConfig) {
+    await loadConfig();
+  }
+  
   let entry = tabDetections.get(tabId);
   if (!entry) {
-    entry = { servers: new Set(), poweredBy: new Set() };
+    entry = { headerTechs: new Map() };
     tabDetections.set(tabId, entry);
   }
-  const name = headerName.toLowerCase();
-  if (name === 'server' && headerValue) {
-    entry.servers.add(headerValue);
-  }
-  if ((name === 'x-powered-by' || name === 'x-generator') && headerValue) {
-    entry.poweredBy.add(headerValue);
-  }
+  
+  // Convert headers to individual header strings for pattern matching
+  const headerStrings = responseHeaders.map(h => `${h.name.toLowerCase()}: ${h.value || ''}`);
+  
+  // Iterate through all configured technologies that have header patterns
+  Object.entries(techConfig).forEach(([key, config]) => {
+    const { name, headers: headerPatterns = [] } = config;
+    
+    // Check header patterns using regex against each header line
+    for (const pattern of headerPatterns) {
+      try {
+        const regex = new RegExp(pattern, 'i');
+        // Test pattern against each header line
+        const matchedHeader = headerStrings.find(headerLine => regex.test(headerLine));
+        if (matchedHeader) {
+          entry.headerTechs.set(key, {
+            key,
+            name,
+            description: config.description || '',
+            link: config.link || '',
+            tags: config.tags || [],
+            developer: config.developer || '',
+            detectionMethod: 'HTTP Headers',
+            pattern,
+            matchedHeader // Include which header matched for debugging
+          });
+          console.log(`Background: Detected ${name} via header pattern: ${pattern} (matched: ${matchedHeader})`);
+          break; // Only add once per technology
+        }
+      } catch (error) {
+        console.warn(`Background: Invalid header regex pattern for ${name}:`, pattern, error);
+      }
+    }
+  });
+  
   // Notify side panel if it's open for this tab so UI updates immediately
-  const httpHeaders = {
-    servers: Array.from(entry.servers),
-    poweredBy: Array.from(entry.poweredBy)
-  };
+  const headerTechs = Array.from(entry.headerTechs.values());
+  
   // Only send to the panel if it is ready for this tab
   if (readyPanels.has(tabId)) {
-    chrome.runtime.sendMessage({ action: 'updateHttpHeaders', tabId, httpHeaders }, (res) => { });
+    chrome.runtime.sendMessage({ action: 'updateHeaderTechs', tabId, headerTechs }, (res) => { });
   }
 }
 
@@ -71,20 +121,13 @@ try {
     ['responseHeaders', 'extraHeaders']  // include extraHeaders to capture more headers
   );
 
-function processResponseHeaders(details, tabId) {
+async function processResponseHeaders(details, tabId) {
   // We accept main-frame responses for enabled tabs; per-tab URL tracking
   // is used elsewhere to decide when to clear header detections on origin
   // changes.
   if (details.responseHeaders) {
     console.log('webRequest.onHeadersReceived', { tabId, url: details.url, responseHeaders: details.responseHeaders });
-    for (const h of details.responseHeaders) {
-      if (!h || !h.name) continue;
-      const name = h.name.toLowerCase();
-      const value = h.value || '';
-      if (name === 'server' || name === 'x-powered-by' || name === 'x-generator') {
-        recordHeaderDetection(tabId, name, value);
-      }
-    }
+    await detectTechnologiesFromHeaders(tabId, details.responseHeaders);
   }
 }
   console.log('webRequest.onHeadersReceived listener registered');
@@ -115,7 +158,7 @@ chrome.action.onClicked.addListener((tab) => {
       // ensure an entry exists for this tab and store the visible URL
       let entry = tabDetections.get(tab.id);
       if (!entry) {
-        entry = { url: tab.url || null, servers: new Set(), poweredBy: new Set(), technologies: [] };
+        entry = { url: tab.url || null, technologies: [], headerTechs: new Map() };
         tabDetections.set(tab.id, entry);
       } else {
         entry.url = tab.url || entry.url || null;
@@ -173,11 +216,10 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
         const prev = new URL(entry.url);
         const next = new URL(newVisibleUrl);
         if (prev.origin !== next.origin) {
-          entry.servers = new Set();
-          entry.poweredBy = new Set();
-          const httpHeaders = { servers: [], poweredBy: [] };
+          entry.headerTechs = new Map();
+          const headerTechs = [];
           // Outer guard `panelReady` ensures readiness; send update directly
-          chrome.runtime.sendMessage({ action: 'updateHttpHeaders', tabId, httpHeaders }, (res) => { });
+          chrome.runtime.sendMessage({ action: 'updateHeaderTechs', tabId, headerTechs }, (res) => { });
         }
       } catch (e) {
         console.debug('URL parse failed while comparing origins', e);
@@ -199,7 +241,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   // If the tab with the side panel navigates, update the cached visible URL
   if (tab && tab.url) {
     let entry = tabDetections.get(tabId);
-    if (!entry) entry = { url: tab.url, servers: new Set(), poweredBy: new Set(), technologies: [] };
+    if (!entry) entry = { url: tab.url, technologies: [], headerTechs: new Map() };
     entry.url = tab.url;
     tabDetections.set(tabId, entry);
   }
@@ -214,11 +256,10 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
           const prev = new URL(entry.url);
           const next = new URL(tab.url);
           if (prev.origin !== next.origin) {
-            entry.servers = new Set();
-            entry.poweredBy = new Set();
-            const httpHeaders = { servers: [], poweredBy: [] };
+            entry.headerTechs = new Map();
+            const headerTechs = [];
             if (panelReady) {
-              chrome.runtime.sendMessage({ action: 'updateHttpHeaders', tabId, httpHeaders }, () => { });
+              chrome.runtime.sendMessage({ action: 'updateHeaderTechs', tabId, headerTechs }, () => { });
             }
           }
         } catch (e) {
@@ -251,9 +292,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       readyPanels.add(tabId);
       // send current state for this tab, if present
       const entry = tabDetections.get(tabId);
-      const payload = entry ? { technologies: entry.technologies || [], httpHeaders: { servers: Array.from(entry.servers), poweredBy: Array.from(entry.poweredBy) } } : { technologies: [], httpHeaders: { servers: [], poweredBy: [] } };
+      const payload = entry ? { 
+        technologies: entry.technologies || [], 
+        headerTechs: Array.from(entry.headerTechs.values())
+      } : { 
+        technologies: [], 
+        headerTechs: [] 
+      };
       chrome.runtime.sendMessage({ action: 'updateTechList', technologies: payload.technologies }, () => { });
-      chrome.runtime.sendMessage({ action: 'updateHttpHeaders', httpHeaders: payload.httpHeaders }, () => { });
+      chrome.runtime.sendMessage({ action: 'updateHeaderTechs', headerTechs: payload.headerTechs }, () => { });
     }
     return; // handled
   }
@@ -276,7 +323,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (tabId) {
       let entry = tabDetections.get(tabId);
       if (!entry) {
-        entry = { servers: new Set(), poweredBy: new Set(), technologies: [] };
+        entry = { technologies: [], headerTechs: new Map() };
         tabDetections.set(tabId, entry);
       }
       entry.technologies = Array.isArray(message.technologies) ? message.technologies : [];
@@ -294,7 +341,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const tabId = tabs[0].id;
         const entry = tabDetections.get(tabId);
         if (entry) {
-          sendResponse({ entry: { servers: Array.from(entry.servers), poweredBy: Array.from(entry.poweredBy), technologies: entry.technologies || [] } });
+          sendResponse({ entry: { technologies: entry.technologies || [], headerTechs: Array.from(entry.headerTechs.values()) } });
         } else {
           sendResponse({ entry: null });
         }
@@ -314,14 +361,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           { action: 'getDetectedTechs' },
           (response) => {
             console.log('chrome.tabs.sendMessage callback called', { tabId, response });
-            const entry = tabDetections.get(tabId) || { servers: new Set(), poweredBy: new Set(), technologies: [] };
+            const entry = tabDetections.get(tabId) || { technologies: [], headerTechs: new Map() };
             const merged = {
               ...(response || {}),
               technologies: (response && response.technologies) ? response.technologies : entry.technologies || [],
-              httpHeaders: {
-                servers: Array.from(entry.servers),
-                poweredBy: Array.from(entry.poweredBy)
-              }
+              headerTechs: Array.from(entry.headerTechs.values())
             };
             if (chrome.runtime.lastError) {
               // Content script may not be available on all pages; this is expected
@@ -329,7 +373,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               // debug level to avoid noisy errors in the Extensions page.
               console.debug('tabs.sendMessage failed (content script may be missing)', chrome.runtime.lastError);
               // still send header info even if content script failed
-              sendResponse({ httpHeaders: merged.httpHeaders, error: chrome.runtime.lastError.message || chrome.runtime.lastError });
+              sendResponse({ headerTechs: merged.headerTechs, error: chrome.runtime.lastError.message || chrome.runtime.lastError });
             } else {
               sendResponse(merged);
             }

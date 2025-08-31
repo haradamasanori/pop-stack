@@ -329,7 +329,7 @@
         ],
         "developer": "Apache Software Foundation",
         "headers": [
-            "^.*\\bApache\\b.*$"
+            "^server:.*apache"
         ]
     },
     "express": {
