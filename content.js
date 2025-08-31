@@ -4,6 +4,20 @@ if (window !== window.top) {
 } else {
 
 let detectedTechsByTab = {};
+let techConfig = null;
+
+// Load configuration
+async function loadConfig() {
+  try {
+    const configUrl = chrome.runtime.getURL('config.json');
+    const response = await fetch(configUrl);
+    techConfig = await response.json();
+    console.log('Configuration loaded:', Object.keys(techConfig).length, 'technologies');
+  } catch (error) {
+    console.error('Failed to load config.json:', error);
+    techConfig = {};
+  }
+}
 
 function shouldAnalyzePage() {
   const url = window.location.href;
@@ -24,91 +38,48 @@ function detectTechnologies() {
   console.log('detectTechnologies called');
   const detected = [];
 
-  // Check for Next.js
-  if (document.getElementById('__NEXT_DATA__') || 
-      document.querySelector('meta[name="generator"][content*="Next.js" i]') ||
-      document.querySelector('script[src*="/_next/static/" i]')) {
-    detected.push('Next.js');
+  if (!techConfig) {
+    console.warn('Configuration not loaded, cannot detect technologies');
+    return detected;
   }
 
-  // Check for Gatsby
-  if (document.querySelector('meta[name="generator"][content*="Gatsby" i]')) {
-    detected.push('Gatsby');
-  }
+  const html = document.documentElement.outerHTML;
 
-  // Check for WordPress
-  if (document.querySelector('meta[name="generator"][content*="WordPress" i]')) {
-    detected.push('WordPress');
-  }
-
-  // Check for Wix
-  if (document.querySelector('meta[name="generator"][content*="Wix.com" i]')) {
-    detected.push('Wix');
-  }
-
-  // Check for Squarespace
-  if (document.querySelector('meta[name="generator"][content*="Squarespace" i]')) {
-    detected.push('Squarespace');
-  }
-
-  // Check for Drupal (note: original had uppercase "Generator")
-  if (document.querySelector('meta[name="Generator"][content*="Drupal" i], meta[name="generator"][content*="Drupal" i]')) {
-    detected.push('Drupal');
-  }
-
-  // Check for Joomla
-  if (document.querySelector('meta[name="generator"][content*="Joomla" i]')) {
-    detected.push('Joomla');
-  }
-
-  // Check for Google Analytics using querySelector only
-  if (document.querySelector('script[src*="googletagmanager.com/gtag/js"]') ||
-      document.querySelector('script[src*="google-analytics.com/analytics.js"]') ||
-      document.querySelector('script[src*="googletagmanager.com/gtm.js"]') ||
-      document.getElementById('google-analytics') ||
-      window.gtag || window.ga || window.dataLayer) {
-    detected.push('Google Analytics');
-  }
-
-  // Batch check script sources for efficiency
-  const scripts = document.querySelectorAll('script[src]');
-  if (scripts.length > 0) {
-    const scriptSrcs = Array.from(scripts, s => s.src.toLowerCase()).join(' ');
+  // Iterate through all configured technologies
+  Object.entries(techConfig).forEach(([key, config]) => {
+    const { name, html: htmlPatterns = [] } = config;
     
-    if (scriptSrcs.includes('jquery')) detected.push('jQuery');
-    if (scriptSrcs.includes('react')) detected.push('React');
-    if (scriptSrcs.includes('vue')) detected.push('Vue.js');
-    if (scriptSrcs.includes('angular')) detected.push('Angular');
-    if (scriptSrcs.includes('svelte')) detected.push('Svelte');
-    if (scriptSrcs.includes('ember')) detected.push('Ember.js');
-    if (scriptSrcs.includes('backbone')) detected.push('Backbone.js');
-    if (scriptSrcs.includes('nuxt')) detected.push('Nuxt.js');
-    if (scriptSrcs.includes('shopify')) detected.push('Shopify');
-  }
-
-  // Batch check link hrefs for CSS frameworks
-  const links = document.querySelectorAll('link[rel="stylesheet"][href]');
-  if (links.length > 0) {
-    const linkHrefs = Array.from(links, l => l.href.toLowerCase()).join(' ');
-    
-    if (linkHrefs.includes('bootstrap')) detected.push('Bootstrap');
-    if (linkHrefs.includes('tailwind')) detected.push('Tailwind CSS');
-    if (linkHrefs.includes('materialize')) detected.push('Materialize CSS');
-    if (linkHrefs.includes('bulma')) detected.push('Bulma');
-    if (linkHrefs.includes('foundation')) detected.push('Foundation');
-  }
+    // Check HTML patterns using regex
+    for (const pattern of htmlPatterns) {
+      try {
+        const regex = new RegExp(pattern, 'i');
+        if (regex.test(html)) {
+          detected.push(name);
+          console.log(`Detected ${name} via HTML pattern: ${pattern}`);
+          break; // Only add once per technology
+        }
+      } catch (error) {
+        console.warn(`Invalid regex pattern for ${name}:`, pattern, error);
+      }
+    }
+  });
 
   console.log('Detected:', { detected });
   return detected;
 }
 
-function analyzeContent() {
+async function analyzeContent() {
   console.log('analyzeContent called');
   
   // Skip analysis for non-HTML pages
   if (!shouldAnalyzePage()) {
     chrome.runtime.sendMessage({ action: 'detectedTechs', technologies: [] });
     return;
+  }
+  
+  // Ensure config is loaded
+  if (!techConfig) {
+    await loadConfig();
   }
   
   const technologies = detectTechnologies();
@@ -139,13 +110,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ technologies: [] });
         return;
       }
-      const technologies = detectTechnologies();
-      detectedTechsByTab[tabId] = technologies;
-      sendResponse({ technologies });
+      // Ensure config is loaded before detection
+      (async () => {
+        if (!techConfig) {
+          await loadConfig();
+        }
+        const technologies = detectTechnologies();
+        detectedTechsByTab[tabId] = technologies;
+        sendResponse({ technologies });
+      })();
     }
     return true; // Indicates that the response is sent asynchronously
   }
 });
+
+// Initialize configuration on script load
+loadConfig();
 
 } // End of main frame check
 // Note: content script no longer auto-runs analysis on load. Analysis is
