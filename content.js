@@ -1,3 +1,8 @@
+// Only run in main frame - skip iframes
+if (window !== window.top) {
+  // This is an iframe, don't run analysis
+} else {
+
 let detectedTechsByTab = {};
 
 function shouldAnalyzePage() {
@@ -5,18 +10,10 @@ function shouldAnalyzePage() {
   const pathname = window.location.pathname.toLowerCase();
   
   // Skip non-HTML resources
-  const nonHtmlExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico', 
-                            '.css', '.js', '.json', '.xml', '.pdf', '.zip', '.mp4', 
-                            '.mp3', '.wav', '.woff', '.woff2', '.ttf', '.eot'];
+  const nonHtmlExtensionRegex = /\.(png|jpe?g|gif|svg|webp|ico|css|js|json|xml|pdf|zip|mp[34]|wav|woff2?|[te]ot)$/i;
   
-  if (nonHtmlExtensions.some(ext => pathname.endsWith(ext))) {
+  if (nonHtmlExtensionRegex.test(pathname)) {
     console.log('Skipping analysis for non-HTML resource:', url);
-    return false;
-  }
-  
-  // Only analyze pages with common HTML patterns or no extension
-  if (pathname.includes('.') && !pathname.endsWith('.html') && !pathname.endsWith('.htm') && !pathname.endsWith('.php') && !pathname.endsWith('.asp') && !pathname.endsWith('.aspx')) {
-    console.log('Skipping analysis for non-web page:', url);
     return false;
   }
   
@@ -149,5 +146,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Indicates that the response is sent asynchronously
   }
 });
+
+} // End of main frame check
 // Note: content script no longer auto-runs analysis on load. Analysis is
 // performed when the side panel requests it (via background forwarding).

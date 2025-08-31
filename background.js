@@ -41,30 +41,30 @@ try {
       if (typeof tabId !== 'number' || tabId < 0) return;
       if (!readyPanels.has(tabId)) return;
 
-      // Accept responses that are the main document. Some Chrome builds may not
-      // set details.type reliably; treat frameId===0 as main frame too.
-      if (details.type && details.type !== 'main_frame' && details.frameId !== 0) return;
+      // Only accept main frame requests - use frameId as primary check since type can be unreliable
+      // frameId 0 is always the main frame, regardless of type field
+      if (details.frameId !== 0) return;
 
-      // Filter by URL - only analyze HTML pages
+      // Only analyze server headers from same hostname as the tab - skip external resources
       try {
         const requestUrl = new URL(details.url);
-        const pathname = requestUrl.pathname.toLowerCase();
         
-        // Skip non-HTML resources
-        const nonHtmlExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico', 
-                                  '.css', '.js', '.json', '.xml', '.pdf', '.zip', '.mp4', 
-                                  '.mp3', '.wav', '.woff', '.woff2', '.ttf', '.eot'];
-        
-        if (nonHtmlExtensions.some(ext => pathname.endsWith(ext))) {
-          return; // Skip non-HTML resources
-        }
-
-        // Process headers for HTML resources (remove hostname filtering for now)
-        processResponseHeaders(details, tabId);
+        // Get tab URL to compare hostnames
+        chrome.tabs.get(tabId, (tab) => {
+          if (chrome.runtime.lastError || !tab || !tab.url) return;
+          
+          try {
+            const tabUrl = new URL(tab.url);
+            // Only process requests from same hostname as the tab
+            if (requestUrl.hostname === tabUrl.hostname) {
+              processResponseHeaders(details, tabId);
+            }
+          } catch (e) {
+            console.debug('URL parse failed for tab hostname comparison', e);
+          }
+        });
       } catch (e) {
         console.debug('URL parse failed for request', e);
-        // If URL parsing fails, still try to process headers
-        processResponseHeaders(details, tabId);
       }
     },
     { urls: ['<all_urls>'] },
