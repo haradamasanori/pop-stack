@@ -47,14 +47,23 @@ function detectTechnologies() {
 
   // Iterate through all configured technologies
   Object.entries(techConfig).forEach(([key, config]) => {
-    const { name, html: htmlPatterns = [] } = config;
+    const { name, html: htmlPatterns = [], description, link, tags, developer } = config;
     
     // Check HTML patterns using regex
     for (const pattern of htmlPatterns) {
       try {
         const regex = new RegExp(pattern, 'i');
         if (regex.test(html)) {
-          detected.push(name);
+          detected.push({
+            key,
+            name,
+            description: description || '',
+            link: link || '',
+            tags: tags || [],
+            developer: developer || '',
+            detectionMethod: 'HTML',
+            pattern
+          });
           console.log(`Detected ${name} via HTML pattern: ${pattern}`);
           break; // Only add once per technology
         }
@@ -77,7 +86,7 @@ async function analyzeContent() {
     return;
   }
   
-  // Ensure config is loaded
+  // Load config on-demand only for HTML pages that need analysis
   if (!techConfig) {
     await loadConfig();
   }
@@ -110,7 +119,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ technologies: [] });
         return;
       }
-      // Ensure config is loaded before detection
+      // Load config on-demand only for HTML pages that need analysis
       (async () => {
         if (!techConfig) {
           await loadConfig();
@@ -123,9 +132,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Indicates that the response is sent asynchronously
   }
 });
-
-// Initialize configuration on script load
-loadConfig();
 
 } // End of main frame check
 // Note: content script no longer auto-runs analysis on load. Analysis is

@@ -7,72 +7,138 @@ const dumpArea = document.getElementById('dump-area');
 let currentTechs = [];
 let currentHttpHeaders = { servers: [], poweredBy: [] };
 
+function createTechCard(tech) {
+  const isRichObject = typeof tech === 'object' && tech.name;
+  const name = isRichObject ? tech.name : tech;
+  const description = isRichObject ? tech.description : '';
+  const link = isRichObject ? tech.link : '';
+  const tags = isRichObject ? tech.tags : [];
+  const developer = isRichObject ? tech.developer : '';
+
+  const card = document.createElement('div');
+  card.className = 'card bg-base-200 shadow-sm';
+  
+  const cardBody = document.createElement('div');
+  cardBody.className = 'card-body p-3';
+  
+  // Title with optional link
+  const title = document.createElement('h3');
+  title.className = 'card-title text-sm';
+  if (link) {
+    title.innerHTML = `<a href="${link}" target="_blank" class="link link-primary">${name}</a>`;
+  } else {
+    title.textContent = name;
+  }
+  cardBody.appendChild(title);
+  
+  // Developer info
+  if (developer) {
+    const devInfo = document.createElement('p');
+    devInfo.className = 'text-xs text-base-content/70 -mt-1';
+    devInfo.textContent = `by ${developer}`;
+    cardBody.appendChild(devInfo);
+  }
+  
+  // Description
+  if (description) {
+    const desc = document.createElement('p');
+    desc.className = 'text-xs text-base-content/80 line-clamp-2';
+    desc.textContent = description;
+    cardBody.appendChild(desc);
+  }
+  
+  // Tags
+  if (tags.length > 0) {
+    const tagsDiv = document.createElement('div');
+    tagsDiv.className = 'flex flex-wrap gap-1 mt-1';
+    tags.slice(0, 3).forEach(tag => {
+      const badge = document.createElement('span');
+      badge.className = 'badge badge-xs badge-outline';
+      badge.textContent = tag;
+      tagsDiv.appendChild(badge);
+    });
+    cardBody.appendChild(tagsDiv);
+  }
+  
+  card.appendChild(cardBody);
+  return card;
+}
+
 function renderCombinedList() {
   // Build a merged list: header-derived items first, then HTML-detected techs
   techList.innerHTML = '';
   const added = new Set();
 
-  // Add header-derived entries as readable items
+  // Add header-derived entries as cards
   if (currentHttpHeaders.servers?.length) {
-    // Show "Server:" header once, then list each server as separate row
-    const headerLi = document.createElement('li');
-    headerLi.innerHTML = `<strong>Server:</strong>`;
-    techList.appendChild(headerLi);
+    const serverHeader = document.createElement('h4');
+    serverHeader.className = 'text-sm font-semibold mb-2 text-base-content/80';
+    serverHeader.textContent = 'Server:';
+    techList.appendChild(serverHeader);
     
     currentHttpHeaders.servers.forEach(s => {
       if (!added.has(s)) {
-        const li = document.createElement('li');
-        li.innerHTML = `<a style="margin-left: 20px;">${s}</a>`;
-        techList.appendChild(li);
+        const card = createTechCard({ name: s, description: 'HTTP Server', tags: ['http_server'] });
+        techList.appendChild(card);
         added.add(s);
       }
     });
   }
+  
   if (currentHttpHeaders.poweredBy?.length) {
-    // Show "X-Powered-By:" header once, then list each value as separate row
-    const headerLi = document.createElement('li');
-    headerLi.innerHTML = `<strong>X-Powered-By:</strong>`;
-    techList.appendChild(headerLi);
+    const poweredByHeader = document.createElement('h4');
+    poweredByHeader.className = 'text-sm font-semibold mb-2 mt-4 text-base-content/80';
+    poweredByHeader.textContent = 'X-Powered-By:';
+    techList.appendChild(poweredByHeader);
     
     currentHttpHeaders.poweredBy.forEach(p => {
       if (!added.has(p)) {
-        const li = document.createElement('li');
-        li.innerHTML = `<a style="margin-left: 20px;">${p}</a>`;
-        techList.appendChild(li);
+        const card = createTechCard({ name: p, description: 'Web Framework/Runtime', tags: ['web_framework'] });
+        techList.appendChild(card);
         added.add(p);
       }
     });
   }
 
-  // Divider between header-derived and HTML-derived (only if both present)
-  if ((currentHttpHeaders.servers?.length || currentHttpHeaders.poweredBy?.length) && currentTechs.length) {
-    const divider = document.createElement('li');
-    divider.innerHTML = '<hr />';
-    techList.appendChild(divider);
-  }
-
-  // Add HTML-detected techs, avoiding duplicates
+  // Add HTML-detected techs as rich cards, avoiding duplicates
   if (currentTechs.length > 0) {
+    if (currentHttpHeaders.servers?.length || currentHttpHeaders.poweredBy?.length) {
+      const htmlHeader = document.createElement('h4');
+      htmlHeader.className = 'text-sm font-semibold mb-2 mt-4 text-base-content/80';
+      htmlHeader.textContent = 'Detected from HTML:';
+      techList.appendChild(htmlHeader);
+    }
+    
     currentTechs.forEach(tech => {
-      if (added.has(tech)) return;
-      const li = document.createElement('li');
-      li.innerHTML = `<a>${tech}</a>`;
-      techList.appendChild(li);
-      added.add(tech);
+      const techName = typeof tech === 'object' ? tech.name : tech;
+      if (added.has(techName)) return;
+      
+      const card = createTechCard(tech);
+      techList.appendChild(card);
+      added.add(techName);
     });
   }
 
   if (techList.children.length === 0) {
-    const li = document.createElement('li');
-    li.innerHTML = `<a>No technologies detected.</a>`;
-    techList.appendChild(li);
+    const emptyState = document.createElement('div');
+    emptyState.className = 'text-center text-base-content/60 py-8';
+    emptyState.innerHTML = '<p>No technologies detected.</p><p class="text-xs mt-1">Try visiting a different website.</p>';
+    techList.appendChild(emptyState);
   }
 }
 
 function updateTechList(technologies) {
   console.log('updateTechList called', { technologies });
-  // Deduplicate technologies array
-  currentTechs = Array.isArray(technologies) ? [...new Set(technologies)] : [];
+  // Handle both old string format and new rich object format
+  currentTechs = Array.isArray(technologies) ? technologies : [];
+  // Deduplicate based on name property for rich objects, or string value
+  const seen = new Set();
+  currentTechs = currentTechs.filter(tech => {
+    const key = typeof tech === 'object' ? tech.name : tech;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
   renderCombinedList();
 }
 
@@ -85,9 +151,6 @@ function updateHttpHeaders(httpHeaders) {
   };
   // Hide the separate header list since we show everything in the combined list
   headerList.innerHTML = '';
-  const li = document.createElement('li');
-  li.innerHTML = `<a>HTTP headers shown in main list below</a>`;
-  headerList.appendChild(li);
 
   // Re-render combined tech list so header changes are reflected there too
   renderCombinedList();
