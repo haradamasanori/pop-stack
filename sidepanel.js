@@ -14,22 +14,32 @@ function renderCombinedList() {
 
   // Add header-derived entries as readable items
   if (currentHttpHeaders.servers?.length) {
+    // Show "Server:" header once, then list each server as separate row
+    const headerLi = document.createElement('li');
+    headerLi.innerHTML = `<strong>Server:</strong>`;
+    techList.appendChild(headerLi);
+    
     currentHttpHeaders.servers.forEach(s => {
-      const label = `Server: ${s}`;
-      const li = document.createElement('li');
-      li.innerHTML = `<a>${label}</a>`;
-      techList.appendChild(li);
-      added.add(label);
+      if (!added.has(s)) {
+        const li = document.createElement('li');
+        li.innerHTML = `<a style="margin-left: 20px;">${s}</a>`;
+        techList.appendChild(li);
+        added.add(s);
+      }
     });
   }
   if (currentHttpHeaders.poweredBy?.length) {
+    // Show "X-Powered-By:" header once, then list each value as separate row
+    const headerLi = document.createElement('li');
+    headerLi.innerHTML = `<strong>X-Powered-By:</strong>`;
+    techList.appendChild(headerLi);
+    
     currentHttpHeaders.poweredBy.forEach(p => {
-      const label = `X-Powered-By: ${p}`;
-      if (!added.has(label)) {
+      if (!added.has(p)) {
         const li = document.createElement('li');
-        li.innerHTML = `<a>${label}</a>`;
+        li.innerHTML = `<a style="margin-left: 20px;">${p}</a>`;
         techList.appendChild(li);
-        added.add(label);
+        added.add(p);
       }
     });
   }
@@ -61,31 +71,23 @@ function renderCombinedList() {
 
 function updateTechList(technologies) {
   console.log('updateTechList called', { technologies });
-  currentTechs = Array.isArray(technologies) ? technologies.slice() : [];
+  // Deduplicate technologies array
+  currentTechs = Array.isArray(technologies) ? [...new Set(technologies)] : [];
   renderCombinedList();
 }
 
 function updateHttpHeaders(httpHeaders) {
   console.log('updateHttpHeaders called', { httpHeaders });
-  currentHttpHeaders = httpHeaders || { servers: [], poweredBy: [] };
-  // Render the separate header list
+  // Deduplicate arrays to ensure no duplicate servers/poweredBy values
+  currentHttpHeaders = {
+    servers: httpHeaders?.servers ? [...new Set(httpHeaders.servers)] : [],
+    poweredBy: httpHeaders?.poweredBy ? [...new Set(httpHeaders.poweredBy)] : []
+  };
+  // Hide the separate header list since we show everything in the combined list
   headerList.innerHTML = '';
-  if (!currentHttpHeaders.servers?.length && !currentHttpHeaders.poweredBy?.length) {
-    const li = document.createElement('li');
-    li.innerHTML = `<a>No HTTP header detections</a>`;
-    headerList.appendChild(li);
-  } else {
-    if (currentHttpHeaders.servers?.length) {
-      const sHeader = document.createElement('li');
-      sHeader.innerHTML = `<strong>Server:</strong> ${currentHttpHeaders.servers.join(', ')}`;
-      headerList.appendChild(sHeader);
-    }
-    if (currentHttpHeaders.poweredBy?.length) {
-      const pHeader = document.createElement('li');
-      pHeader.innerHTML = `<strong>Powered-By:</strong> ${currentHttpHeaders.poweredBy.join(', ')}`;
-      headerList.appendChild(pHeader);
-    }
-  }
+  const li = document.createElement('li');
+  li.innerHTML = `<a>HTTP headers shown in main list below</a>`;
+  headerList.appendChild(li);
 
   // Re-render combined tech list so header changes are reflected there too
   renderCombinedList();
