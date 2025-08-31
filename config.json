@@ -1,0 +1,855 @@
+{
+    "angular": {
+        "name": "Angular",
+        "description": "Angular is a comprehensive, open-source web application framework developed and maintained by Google LLC for building modern, scalable, and high-performance single-page applications (SPAs). It is a complete platform that uses a component-based architecture and TypeScript, a statically-typed superset of JavaScript, to enhance code quality and maintainability.",
+        "tags": [
+            "web_framework",
+            "javascript",
+            "typescript"
+        ],
+        "link": "https://angular.dev/",
+        "developer": "Google LLC",
+        "html": [
+            "<script[^>]*\\bangular[.].*?>"
+        ]
+    },
+    "aurelia": {
+        "name": "Aurelia",
+        "description": "Aurelia is a modern, front-end JavaScript framework for building desktop, mobile, and web applications. It focuses on simplicity, convention over configuration, and a modular design, making it easy to learn and extend.",
+        "tags": [
+            "web_framework",
+            "javascript"
+        ],
+        "link": "https://aurelia.io/",
+        "developer": "Aurelia Core Team",
+        "html": [
+            "<script[^>]*\\baurelia.*?>"
+        ]
+    },
+    "backbone": {
+        "name": "Backbone.js",
+        "description": "Backbone.js is a lightweight JavaScript library that provides structure to web applications by offering models with key-value binding and custom events, collections with a rich API of enumerable functions, views with declarative event handling, and connects it all with your existing API using a RESTful JSON interface. It is known for its simplicity and flexibility.",
+        "tags": [
+            "web_framework",
+            "javascript"
+        ],
+        "link": "https://backbonejs.org/",
+        "developer": "Jeremy Ashkenas",
+        "html": [
+            "<script[^>]*backbone[^>]*\\.js"
+        ]
+    },
+    "ember": {
+        "name": "Ember.js",
+        "description": "Ember.js is a productive, ambitious JavaScript framework for building modern web applications. It is designed for building complex, long-lived web applications and provides a strong convention-over-configuration approach, integrated tooling, and a focus on developer productivity.",
+        "tags": [
+            "web_framework",
+            "javascript"
+        ],
+        "link": "https://emberjs.com/",
+        "developer": "Ember Core Team",
+        "html": [
+            "<script[^>]*ember[^>]*\\.js"
+        ]
+    },
+    "gatsby": {
+        "name": "Gatsby",
+        "description": "Gatsby is a modern, open-source static site generator and web framework built on top of React and GraphQL. It is designed to create highly performant, secure, and scalable websites by pre-rendering all pages into static HTML files during the build process. This approach results in exceptionally fast load times and a better user experience, as the browser can serve the pre-built files directly without needing to query a database or run server-side code on every request.",
+        "tags": [
+            "web_framework",
+            "javascript",
+            "static_site_generator",
+            "react",
+            "graphql"
+        ],
+        "link": "https://www.gatsbyjs.com/",
+        "developer": "Gatsby, Inc.",
+        "html": [
+            "<div[^>]*id=\"___gatsby\""
+        ]
+    },
+    "knockout": {
+        "name": "Knockout.js",
+        "description": "Knockout.js is a JavaScript library that helps you create rich, responsive display and editor user interfaces with a clean underlying data model. Any changes you make to your data model are automatically reflected in your UI.",
+        "tags": [
+            "web_framework",
+            "javascript"
+        ],
+        "link": "https://knockoutjs.com/",
+        "developer": "Steven Sanderson",
+        "html": [
+            "<script[^>]*knockout[^>]*\\.js"
+        ]
+    },
+    "mootools": {
+        "name": "MooTools",
+        "description": "MooTools is a compact, modular, object-oriented JavaScript framework designed for the experienced JavaScript developer. It allows you to write powerful, flexible, and cross-browser code with ease.",
+        "tags": [
+            "web_framework",
+            "javascript"
+        ],
+        "link": "https://mootools.net/",
+        "developer": "MooTools team",
+        "html": [
+            "<script[^>]*mootools[^>]*\\.js"
+        ]
+    },
+    "polymer": {
+        "name": "Polymer",
+        "description": "Polymer is an open-source JavaScript library developed by Google that allows developers to create and reuse custom HTML elements, known as Web Components. It is designed to make it easier to build modular, maintainable, and interoperable web applications by leveraging the latest web standards. Polymer provides a set of features for creating custom elements with their own templates, styles, and logic, promoting a component-driven approach to web development.",
+        "tags": [
+            "web_framework",
+            "javascript"
+        ],
+        "link": "https://www.polymer-project.org/",
+        "developer": "The Polymer Authors",
+        "html": [
+            "<script[^>]*polymer[^>]*\\.js"
+        ]
+    },
+    "reactivejs": {
+        "name": "Reactive.js",
+        "description": "Reactive.js is a JavaScript library for reactive programming, which is a programming paradigm that deals with asynchronous data streams. It allows developers to manage and manipulate streams of data over time, making it easier to handle events, asynchronous requests, and other dynamic data. By using concepts like observables and operators, Reactive.js provides a powerful way to compose and transform data streams, leading to more predictable and maintainable code for complex, event-driven applications.",
+        "tags": [
+            "web_framework",
+            "javascript"
+        ],
+        "link": "https://reactive.io/",
+        "developer": "ReactiveJS contributors",
+        "html": [
+            "<script[^>]*reactive[^>]*\\.js"
+        ]
+    },
+    "react": {
+        "name": "React",
+        "description": "React is a free and open-source front-end JavaScript library for building user interfaces or UI components. It is maintained by Meta and a community of individual developers and companies. React can be used as a base in the development of single-page, mobile, or server-rendered applications with frameworks like Next.js. Because it is component-based, it allows for the creation of reusable UI components.",
+        "tags": [
+            "web_framework",
+            "javascript"
+        ],
+        "link": "https://reactjs.org/",
+        "developer": "Meta",
+        "html": [
+            "<script[^>]*\\breact[^>]*\\.js",
+            "<div[^>]*data-reactroot",
+            "<div[^>]*id=\"react-root\""
+        ]
+    },
+    "riotjs": {
+        "name": "Riot.js",
+        "description": "Riot.js is a simple and elegant component-based UI library that allows developers to build user interfaces with custom tags. It is known for its minimal and lightweight nature, providing a simple and enjoyable syntax that is easy to learn. Riot.js aims to provide a powerful yet minimalistic toolset for creating reusable components with a clean and readable structure.",
+        "tags": [
+            "web_framework",
+            "javascript"
+        ],
+        "link": "https://riot.js.org/",
+        "developer": "Riot.js community",
+        "html": [
+            "<script[^>]*riot[^>]*\\.js"
+        ]
+    },
+    "nextjs": {
+        "name": "Next.js",
+        "description": "Next.js is a popular open-source React framework created by Vercel that enables developers to build high-performance, server-rendered, and static web applications with ease. It provides a powerful set of features out-of-the-box, including server-side rendering (SSR), static site generation (SSG), file-system based routing, and API routes, which simplifies the development of complex and scalable full-stack applications. By handling much of the configuration and tooling, Next.js allows developers to focus on writing application code while benefiting from optimized performance and a great developer experience.",
+        "link": "https://nextjs.org/",
+        "tags": [
+            "web_framework",
+            "javascript",
+            "react"
+        ],
+        "developer": "Vercel",
+        "html": [
+            "_next/static/chunks",
+            "next-head-count",
+            "next-route-announcer",
+            "__NEXT_DATA__"
+        ],
+        "headers": [
+            ".*\\bnext[.]js\\b.*"
+        ]
+    },
+    "nuxt": {
+        "name": "Nuxt",
+        "link": "https://nuxt.com/",
+        "description": "Nuxt.js is a free and open-source web application framework based on Vue.js, Node.js, Webpack and Babel. It provides a powerful and intuitive way to create universal (server-side rendered) or single-page Vue.js applications.",
+        "tags": [
+            "web_framework",
+            "javascript"
+        ],
+        "developer": "Nuxt Team",
+        "html": [
+            "/_nuxt/",
+            "\"__nuxt\""
+        ]
+    },
+    "vue": {
+        "name": "Vue.js",
+        "link": "https://vuejs.org/",
+        "description": "Vue.js is an open-source model-view-viewmodel front end JavaScript framework for building user interfaces and single-page applications. It's known for its progressive adoption, allowing developers to integrate it incrementally into existing projects.",
+        "tags": [
+            "web_framework",
+            "javascript"
+        ],
+        "developer": "Evan You and Vue.js contributors",
+        "html": [
+            "<script[^>]*vue[.]js"
+        ]
+    },
+    "jquery": {
+        "name": "JQuery",
+        "link": "https://jquery.com/",
+        "description": "jQuery is a fast, small, and feature-rich JavaScript library. It makes things like HTML document traversal and manipulation, event handling, animation, and Ajax much simpler with an easy-to-use API that works across a multitude of browsers.",
+        "tags": [
+            "javascript"
+        ],
+        "developer": "The jQuery Foundation",
+        "html": [
+            "<script[^>]*\\bjquery[.]",
+            "https://ajax[.]googleapis[.]com/ajax/libs/jquery",
+            "jquery[.]min[.]js"
+        ]
+    },
+    "sass": {
+        "name": "Sass",
+        "link": "https://sass-lang.com/",
+        "description": "Sass (Syntactically Awesome Stylesheets) is a preprocessor scripting language that is interpreted or compiled into Cascading Style Sheets (CSS). SassScript is the scripting language itself. Sass consists of two syntaxes: the original indented syntax called \"Sass\" and the newer \"SCSS\" (Sassy CSS).",
+        "tags": [
+            "css"
+        ],
+        "developer": "Hampton Catlin, Michael \"Mike\" Bianchi, Chris Eppstein",
+        "html": [
+            "<link[^>]+[.]s[ac]ss"
+        ]
+    },
+    "ga": {
+        "name": "Google Analytics",
+        "link": "https://analytics.google.com/",
+        "description": "Google Analytics is a web analytics service offered by Google that tracks and reports website traffic, currently as a platform inside the Google Marketing Platform brand. It helps businesses understand user behavior and optimize their online presence.",
+        "tags": [
+            "analytics"
+        ],
+        "developer": "Google",
+        "html": [
+            "google-analytics[.]com"
+        ]
+    },
+    "gtm": {
+        "name": "Google Tag Manager",
+        "description": "Google Tag Manager is a tag management system that allows you to quickly and easily update tracking codes and related code fragments known as \"tags\" on your website or mobile app. This helps in managing marketing and analytics tags without directly modifying website code.",
+        "link": "https://tagmanager.google.com/",
+        "developer": "Google LLC",
+        "tags": [
+            "analytics"
+        ],
+        "html": [
+            "googletagmanager[.]com"
+        ]
+    },
+    "tailwindcss": {
+        "name": "Tailwind CSS",
+        "description": "Tailwind CSS is a utility-first CSS framework for rapidly building custom user interfaces. Instead of predefined components, it provides low-level utility classes that you can combine to build any design directly in your markup.",
+        "link": "https://tailwindcss.com/",
+        "tags": [
+            "css"
+        ],
+        "developer": "Adam Wathan, Steve Schoger, and the Tailwind CSS team",
+        "html": [
+            "tailwindcss"
+        ]
+    },
+    "chakraui": {
+        "name": "Chakra UI",
+        "description": "Chakra UI is a simple, modular, and accessible component library for React applications. It provides a set of accessible and composable React components that make it easy to build UIs quickly.",
+        "tags": [
+            "css"
+        ],
+        "developer": "Segun Adebayo",
+        "html": [
+            "chakraui",
+            "--chakra-"
+        ],
+        "link": "https://chakra-ui.com/"
+    },
+    "daisyui": {
+        "description": "daisyUI is a Tailwind CSS component library that adds a set of component classes to Tailwind CSS, making it easier to build common UI elements with pre-styled designs.",
+        "name": "daisyUI",
+        "tags": [
+            "css"
+        ],
+        "developer": "Pouya Saadeghi",
+        "html": [
+            "cdn.jsdelivr.net/npm/daisyui"
+        ],
+        "link": "https://daisyui.com/"
+    },
+    "htmx": {
+        "description": "HTMX is a library that allows you to access modern browser features directly from HTML, rather than using JavaScript. It enables you to build dynamic user interfaces with less JavaScript by leveraging HTML attributes for AJAX, CSS transitions, WebSockets, and Server Sent Events.",
+        "name": "HTMX",
+        "tags": [
+            "web_framework",
+            "javascript"
+        ],
+        "link": "https://htmx.org/",
+        "developer": "Carson Gross",
+        "html": [
+            "unpkg.com/htmx",
+            " hx-(?:get|post|target|indicator)="
+        ]
+    },
+    "nginx": {
+        "description": "Nginx (engine-x) is a free, open-source, high-performance HTTP server and reverse proxy, as well as an IMAP/POP3 proxy server. It is known for its high concurrency, excellent performance, and low memory usage, making it ideal for high-traffic websites.",
+        "name": "Nginx",
+        "link": "https://nginx.org/",
+        "tags": [
+            "http_server"
+        ],
+        "developer": "Nginx, Inc.",
+        "headers": [
+            "\\bnginx\\b"
+        ]
+    },
+    "envoy": {
+        "description": "Envoy is an open-source edge and service proxy, designed for cloud-native applications. It sits between your services and the outside world, handling network requests and providing advanced features like load balancing, circuit breaking, and traffic routing.",
+        "name": "Envoy",
+        "link": "https://www.envoyproxy.io/",
+        "tags": [
+            "http_server"
+        ],
+        "developer": "Cloud Native Computing Foundation",
+        "headers": [
+            ".*\\benvoy\\b.*"
+        ]
+    },
+    "apache": {
+        "name": "Apache",
+        "link": "https://httpd.apache.org/",
+        "description": "Apache HTTP Server, commonly referred to as Apache, is a free and open-source cross-platform web server software. It is one of the oldest and most widely used web servers, known for its flexibility and robust feature set.",
+        "tags": [
+            "http_server"
+        ],
+        "developer": "Apache Software Foundation",
+        "headers": [
+            "^.*\\bApache\\b.*$"
+        ]
+    },
+    "express": {
+        "name": "Express",
+        "link": "https://expressjs.com/",
+        "description": "Express.js is a minimal and flexible Node.js web application framework that provides a robust set of features for web and mobile applications. It's widely used for building APIs and web servers due to its simplicity and unopinionated nature.",
+        "developer": "TJ Holowaychuk",
+        "headers": [
+            "^x-powered-by:.*express"
+        ]
+    },
+    "varnish": {
+        "name": "Varnish",
+        "link": "https://varnish-cache.org/",
+        "description": "Varnish Cache is an open-source HTTP accelerator designed for content-heavy dynamic websites. It acts as a reverse proxy that sits in front of your web server, caching frequently accessed content to improve website performance and reduce server load.",
+        "tags": [
+            "http_server"
+        ],
+        "developer": "Varnish Software AS",
+        "headers": [
+            "^.*\\bvarnish\\b"
+        ]
+    },
+    "google": {
+        "name": "Google",
+        "link": "https://about.google/",
+        "description": "This likely refers to Google's general web services or platforms, encompassing a wide range of offerings like search, cloud computing, advertising, and development tools. It's a broad term for various web-related services provided by Google.",
+        "developer": "Google LLC",
+        "headers": [
+            "^server:.*google$",
+            "^via:.*google"
+        ]
+    },
+    "vercel": {
+        "name": "Vercel",
+        "link": "https://vercel.com/",
+        "developer": "Vercel Inc.",
+        "description": "Vercel is a cloud platform for static sites and Serverless Functions, specializing in Next.js applications. It provides global deployment, serverless scaling, and a seamless developer experience for modern web projects.",
+        "headers": [
+            "^x-vercel-id",
+            "^server: Vercel"
+        ]
+    },
+    "gae": {
+        "name": "Google App Engine",
+        "description": "Google App Engine (GAE) is a platform-as-a-service (PaaS) product that enables web app developers and enterprises to build, deploy and host scalable, high-performance applications in Google's fully managed cloud environment without having to worry about infrastructure provisioning or management.",
+        "link": "https://cloud.google.com/appengine",
+        "developer": "Google LLC",
+        "headers": [
+            "^x-appengine.*$"
+        ]
+    },
+    "cloudfront": {
+        "name": "Amazon CloudFront",
+        "link": "https://aws.amazon.com/cloudfront/",
+        "tags": [
+            "cdn",
+            "aws"
+        ],
+        "developer": "Amazon.com, Inc.",
+        "description": "Amazon CloudFront is a fast content delivery network (CDN) service by Amazon Web Services (AWS). It securely delivers data, videos, applications, and APIs to customers globally with low latency and high transfer speeds.",
+        "headers": [
+            "^.*\\bcloudfront\\b.*$",
+            "^x-amz-cf-.*:",
+            "^Server: CEP$",
+            "^X-infrastructure: CepAws"
+        ]
+    },
+    "fastly": {
+        "name": "Fastly",
+        "link": "https://www.fastly.com/",
+        "developer": "Fastly, Inc.",
+        "description": "Fastly is a cloud computing services provider that offers a content delivery network (CDN), edge cloud platform, and web application firewall (WAF). It's known for its real-time performance and ability to run code at the edge of the network.",
+        "tags": [
+            "cdn"
+        ],
+        "domains": [
+            "\\bfastly[.]net$"
+        ],
+        "headers": [
+            "^.*\\bfastly\\b.*$"
+        ]
+    },
+    "cloudflare": {
+        "name": "Cloudflare",
+        "link": "https://www.cloudflare.com/",
+        "developer": "Cloudflare, Inc.",
+        "description": "Cloudflare is a web infrastructure and website security company that provides content delivery network services, DDoS mitigation, Internet security, and distributed domain name server services. It helps protect and accelerate websites and applications.",
+        "tags": [
+            "cdn"
+        ],
+        "html": [
+            "data-cf-beacon"
+        ],
+        "headers": [
+            "^Server:.*\\bcloudflare\\b.*$",
+            "^cf-ray.*$",
+            "^cf-mitigated.*$"
+        ]
+    },
+    "heroku": {
+        "name": "Heroku",
+        "link": "https://www.heroku.com/",
+        "description": "Heroku is a cloud platform as a service (PaaS) that supports several programming languages. It allows developers to deploy, run, and scale applications in the cloud, abstracting away the complexities of infrastructure management.",
+        "tags": [
+            "cloud"
+        ],
+        "developer": "Salesforce",
+        "domains": [
+            "herokuapp[.]com"
+        ],
+        "headers": [
+            "^.*\\bheroku\\b.*$"
+        ]
+    },
+    "github": {
+        "name": "GitHub",
+        "link": "https://github.com/",
+        "description": "GitHub is a web-based hosting service for version control using Git. It is primarily used for computer code, facilitating collaborative development and project management for software developers.",
+        "tags": [
+            "cloud"
+        ],
+        "developer": "Microsoft Corporation",
+        "domains": [
+            "\\bgithub"
+        ],
+        "headers": [
+            "\\bgithub\\b"
+        ]
+    },
+    "gcp": {
+        "name": "Google Cloud Platform",
+        "tags": [
+            "paas",
+            "cloud"
+        ],
+        "developer": "Google LLC",
+        "link": "https://cloud.google.com/",
+        "description": "Google Cloud Platform (GCP) is a suite of cloud computing services that runs on the same infrastructure that Google uses internally for its end-user products, such as Google Search, Gmail, file storage, and YouTube. It offers various services like compute, storage, databases, machine learning, and more.",
+        "headers": [
+            "^x-backend-server:.*gcp",
+            "^x-served-by:.*gcp"
+        ]
+    },
+    "aws": {
+        "name": "Amazon Web Services",
+        "tags": [
+            "cloud"
+        ],
+        "link": "https://aws.amazon.com/",
+        "developer": "Amazon.com, Inc.",
+        "description": "Amazon Web Services (AWS) is a comprehensive, broadly adopted, and widely used cloud platform, offering over 200 fully featured services from data centers globally. It provides a vast array of services for compute, storage, databases, analytics, machine learning, and more.",
+        "headers": [
+            "^set-cookie:.*AWSALB",
+            "^x-amz-.*?:"
+        ]
+    },
+    "azure": {
+        "name": "Microsoft Azure",
+        "link": "https://azure.microsoft.com/",
+        "tags": [
+            "cloud"
+        ],
+        "developer": "Microsoft Corporation",
+        "description": "Microsoft Azure, commonly referred to as Azure, is a cloud computing service operated by Microsoft for application management via Microsoft-managed data centers. It provides a wide range of services for building, deploying, and managing applications and services.",
+        "headers": [
+            "\\bazure\\b"
+        ]
+    },
+    "akamai": {
+        "name": "Akamai",
+        "link": "https://www.akamai.com/",
+        "tags": [
+            "cdn"
+        ],
+        "developer": "Akamai Technologies, Inc.",
+        "description": "Akamai Technologies is a content delivery network (CDN) and cloud services company that provides a global network of servers to deliver web content and applications quickly and securely. It focuses on web performance, security, and media delivery.",
+        "headers": [
+            "^Akamai.*"
+        ]
+    },
+    "netlify": {
+        "name": "Netlify",
+        "tags": [
+            "cloud"
+        ],
+        "link": "https://www.netlify.com/",
+        "developer": "Netlify, Inc.",
+        "description": "Netlify is a web developer platform that unifies the entire workflow for building, deploying, and scaling high-performance web applications. It offers continuous deployment, serverless functions, and a global CDN for modern web projects.",
+        "headers": [
+            "^.*\\bNetlify\\b.*$"
+        ]
+    },
+    "cakephp": {
+        "name": "CakePHP",
+        "tags": [
+            "web_framework",
+            "php"
+        ],
+        "link": "https://cakephp.org/",
+        "developer": "Cake Software Foundation, Inc.",
+        "description": "CakePHP is an open-source web framework written in PHP, which follows the model-view-controller (MVC) architectural pattern. It provides a structured and rapid development environment for building web applications.",
+        "headers": [
+            "^.*\\bcakephp\\b.*$"
+        ]
+    },
+    "symfony": {
+        "name": "Symfony",
+        "tags": [
+            "web_framework",
+            "php"
+        ],
+        "link": "https://symfony.com/",
+        "developer": "SensioLabs",
+        "description": "Symfony is a PHP web application framework and a set of reusable PHP components/libraries. It provides a robust architecture for building complex web applications, emphasizing performance and flexibility.",
+        "headers": [
+            "^.*\\bsymfony\\b.*$"
+        ],
+        "html": [
+            "<!--\\s*symfony"
+        ]
+    },
+    "zendframework": {
+        "name": "Zend Framework",
+        "tags": [
+            "web_framework",
+            "php"
+        ],
+        "developer": "Zend Technologies",
+        "link": "https://framework.zend.com/",
+        "description": "Zend Framework is an open-source, object-oriented web application framework for PHP. It provides a collection of professional PHP packages that are used to build web applications and services.",
+        "headers": [
+            "^.*\\bZend\\b.*$"
+        ]
+    },
+    "fuelphp": {
+        "name": "FuelPHP",
+        "tags": [
+            "web_framework",
+            "php"
+        ],
+        "link": "https://fuelphp.com/",
+        "developer": "FuelPHP Development Team",
+        "description": "FuelPHP is a fast, simple, and flexible PHP 5.3+ web framework with a strong emphasis on community and code usability. It offers an MVC pattern and a hierarchical model-view-controller (HMVC) pattern.",
+        "headers": [
+            "^.*\\bFuelPHP\\b.*$"
+        ]
+    },
+    "codeigniter": {
+        "name": "CodeIgniter",
+        "tags": [
+            "web_framework",
+            "php"
+        ],
+        "link": "https://codeigniter.com/",
+        "developer": "British Columbia Institute of Technology",
+        "description": "CodeIgniter is an open-source software rapid development web framework, for use in building dynamic web sites with PHP. It's known for its small footprint, exceptional performance, and clear documentation.",
+        "html": [
+            "<script[^>]*\\bcodeigniter.*?>"
+        ]
+    },
+    "yii": {
+        "name": "Yii",
+        "tags": [
+            "web_framework",
+            "php"
+        ],
+        "link": "https://www.yiiframework.com/",
+        "developer": "Yii Development Team",
+        "description": "Yii is a high-performance, component-based PHP framework for rapidly developing large-scale Web applications. It promotes clean, DRY (Don't Repeat Yourself) code and comes with a rich set of features.",
+        "html": [
+            "<script[^>]*\\byii[.]js",
+            "\\byiiBaseUrl\\b"
+        ]
+    },
+    "prado": {
+        "name": "PRADO",
+        "tags": [
+            "web_framework",
+            "php"
+        ],
+        "description": "PRADO is a component-based and event-driven PHP framework for developing Web applications. It emphasizes rapid development and clean code by using a modular architecture and promoting reusability.",
+        "link": "https://www.pradoframework.net/site/",
+        "developer": "Qiang Xue",
+        "html": [
+            "<!--\\s*powered\\s+by\\s+prado",
+            "PRADO_PAGESTATE",
+            "Prado[.]WebUI"
+        ]
+    },
+    "laravel": {
+        "name": "Laravel",
+        "tags": [
+            "web_framework",
+            "php"
+        ],
+        "link": "https://laravel.com/",
+        "description": "Laravel is a free and open-source GPL-licensed PHP web framework, designed for the development of web applications following the model-view-controller (MVC) architectural pattern. It's known for its elegant syntax, extensive features, and large community support.",
+        "developer": "Taylor Otwell",
+        "html": [
+            "<meta\\s+name=\"generator\"\\s+content=\"laravel\""
+        ],
+        "headers": [
+            "^.*\\blaravel\\b.*$"
+        ]
+    },
+    "drupal": {
+        "name": "Drupal",
+        "description": "Drupal is a free and open-source content management system (CMS) that allows users to easily create, manage, and publish content on the web. It is highly flexible and scalable, making it suitable for a wide range of websites, from personal blogs to large enterprise applications. Drupal is known for its robust features, modularity, and strong community support.",
+        "tags": [
+            "web_framework",
+            "php",
+            "cms"
+        ],
+        "link": "https://www.drupal.org/",
+        "developer": "Drupal Association",
+        "html": [
+            "\\bdata-drupal-[\\w-]+"
+        ],
+        "headers": [
+            "^.*\\bdrupal.*$"
+        ]
+    },
+    "typo3": {
+        "name": "TYPO3",
+        "description": "TYPO3 is a free and open-source enterprise content management system (CMS) written in PHP. It is known for its extensive feature set, flexibility, and scalability, making it suitable for complex websites and digital platforms. TYPO3 offers powerful multi-site management, workflow capabilities, and a strong focus on security and performance.",
+        "tags": [
+            "web_framework",
+            "php",
+            "cms"
+        ],
+        "link": "https://typo3.org/",
+        "developer": "TYPO3 Association",
+        "html": [
+            "\\btypo3-universal\\b"
+        ],
+        "headers": [
+            "^.*\\btypo3.*$"
+        ]
+    },
+    "joomla": {
+        "name": "Joomla!",
+        "description": "Joomla! is a free and open-source content management system (CMS) for publishing web content. It is built on a model-view-controller web application framework and is widely used for various types of websites, including corporate websites, online magazines, e-commerce sites, and social networking platforms. Joomla! offers a user-friendly interface and a large ecosystem of extensions.",
+        "tags": [
+            "web_framework",
+            "php",
+            "cms"
+        ],
+        "link": "https://www.joomla.org/",
+        "developer": "Open Source Matters, Inc.",
+        "html": [
+            "joomla-custom-elements",
+            "joomla-script-options"
+        ],
+        "headers": [
+            "^.*\\bjoomla.*$"
+        ]
+    },
+    "django": {
+        "name": "Django",
+        "tags": [
+            "web_framework",
+            "python"
+        ],
+        "link": "https://www.djangoproject.com/",
+        "developer": "Django Software Foundation",
+        "description": "Django is a high-level Python web framework that encourages rapid development and clean, pragmatic design. It is built on the \"Don't Repeat Yourself\" (DRY) principle and provides a comprehensive set of tools and features for building complex, database-driven web applications quickly. Django is known for its \"batteries included\" approach, offering an ORM, admin panel, and authentication system out-of-the-box.",
+        "headers": [
+            "^.*\\bDjango\\b.*$"
+        ]
+    },
+    "reflex": {
+        "name": "Reflex",
+        "tags": [
+            "web_framework",
+            "python"
+        ],
+        "link": "https://reflex.dev/",
+        "developer": "Anyscale",
+        "description": "Reflex.dev is an open-source, full-stack Python framework for web applications, integrating frontend and backend logic in Python. It utilizes an event-driven architecture and compiles the frontend into a React-based single-page application, with a backend built on FastAPI. Reflex seeks to simplify web development for Python developers using a single-language solution, avoiding the need for JavaScript or web development expertise. Reflex additionally provides a hosting service, Reflex Cloud, offering custom domains and website analytics. Reviews commend Reflex for its ease of use, speed, and consolidation of frameworks.",
+        "html": [
+            "<script[^>]*_reflex/\\b",
+            "<script[^>]*\\breflex_client[.]js"
+        ]
+    },
+    "masonite": {
+        "description": "Masonite is a modern and developer-centric Python web framework that focuses on simplicity, elegance, and rapid development. It follows an MVC (Model-View-Controller) architecture and provides a clean API for building web applications and APIs. Masonite emphasizes ease of use and offers features like an ORM, routing, and templating engine.",
+        "name": "Masonite",
+        "tags": [
+            "web_framework",
+            "python"
+        ],
+        "link": "https://docs.masoniteproject.com/",
+        "developer": "Masonite Community",
+        "headers": [
+            "^.*\\bMasonite\\b.*$"
+        ]
+    },
+    "turbogears": {
+        "description": "TurboGears is a Python web application framework designed for rapid web development. It is a full-stack framework that integrates various components, including an ORM (SQLAlchemy), templating engine (Jinja2 or Kid), and routing. TurboGears aims to provide a balance between convention and flexibility, allowing developers to choose the tools that best fit their needs.",
+        "name": "TurboGears",
+        "tags": [
+            "web_framework",
+            "python"
+        ],
+        "link": "https://turbogears.org/",
+        "developer": "TurboGears Community",
+        "headers": [
+            "^.*\\bTurboGears\\b.*$"
+        ],
+        "html": [
+            "<!--\\s*TurboGears\\s*-->"
+        ]
+    },
+    "web2py": {
+        "name": "web2py",
+        "tags": [
+            "web_framework",
+            "python"
+        ],
+        "link": "http://www.web2py.com/",
+        "developer": "Massimo Di Pierro",
+        "description": "web2py is a free, open-source web framework for agile development, written in Python. It emphasizes simplicity and ease of use, offering a complete development environment including a web server, database abstraction layer, and IDE. web2py focuses on security, automatically preventing common vulnerabilities like cross-site scripting and SQL injection.",
+        "headers": [
+            "^.*\\bweb2py\\b.*$"
+        ],
+        "html": [
+            "<script[^>]*web2py[^>]*\\.js"
+        ]
+    },
+    "framer": {
+        "name": "Framer",
+        "tags": [
+            "cms"
+        ],
+        "description": "Framer is a design and prototyping tool that also functions as a web development framework, allowing designers to build interactive prototypes and functional websites with React components. It bridges the gap between design and code, enabling the creation of high-fidelity user interfaces with real data and complex interactions. Framer aims to streamline the handover from design to development.",
+        "link": "http://www.framer.com/",
+        "developer": "Framer B.V.",
+        "html": [
+            "Built with Framer",
+            "<meta[^>]*framerusercontent[.]com[^>]*>"
+        ]
+    },
+    "squarespace": {
+        "name": "Squarespace",
+        "tags": [
+            "cms"
+        ],
+        "link": "https://www.squarespace.com/",
+        "developer": "Squarespace, Inc.",
+        "description": "Squarespace is a popular website builder and hosting service that allows individuals and businesses to create professional-looking websites without coding. It offers a drag-and-drop interface, customizable templates, and integrated e-commerce functionalities, making it easy to build portfolios, online stores, and blogs. Squarespace focuses on design aesthetics and user-friendliness.",
+        "headers": [
+            "^.*\\bSquarespace\\b.*$"
+        ]
+    },
+    "unbounce": {
+        "name": "Unbounce",
+        "tags": [
+            "cms"
+        ],
+        "link": "https://unbounce.com/",
+        "developer": "Unbounce Marketing Solutions Inc.",
+        "description": "Unbounce is a landing page platform that enables marketers to build, publish, and A/B test custom landing pages without IT hassle. It provides a drag-and-drop builder, a wide range of templates, and conversion optimization tools to help businesses generate leads and sales. Unbounce is designed to empower marketers to create high-converting campaigns quickly.",
+        "headers": [
+            "^.*\\bUnbounce\\b.*$"
+        ],
+        "html": [
+            "\\bub-page-overlay",
+            "\\bunbounce[.]com/\\w+/"
+        ]
+    },
+    "webflow": {
+        "name": "Webflow",
+        "tags": [
+            "web_framework",
+            "cms"
+        ],
+        "link": "https://webflow.com/",
+        "developer": "Webflow, Inc.",
+        "description": "Webflow is a no-code visual web design and CMS platform that allows users to design, build, and launch responsive websites without writing code. It provides a drag-and-drop interface, built-in CMS, and hosting capabilities, making it a popular choice for designers and marketers.",
+        "headers": [
+            "^x-powered-by: Webflow"
+        ],
+        "html": [
+            "\\bwebflow[.]js",
+            "\\bdata-wf-page\\b"
+        ]
+    },
+    "wix": {
+        "name": "Wix",
+        "description": "Wix is a cloud-based web development platform that allows users to create websites and mobile sites through the use of online drag and drop tools. It provides a wide range of templates, apps, and features for building various types of websites, from personal portfolios to online stores.",
+        "tags": [
+            "cms"
+        ],
+        "link": "https://www.wix.com/",
+        "developer": "Wix.com Ltd.",
+        "headers": [
+            "^x-wix-request-id.*$"
+        ],
+        "html": [
+            "\\bwix[.]com/",
+            "static[.]parastorage[.]com"
+        ]
+    },
+    "wordpress": {
+        "name": "WordPress",
+        "description": "WordPress is a free and open-source content management system (CMS) written in PHP and paired with a MySQL or MariaDB database. It is the most popular CMS in the world, powering millions of websites, and offers a flexible platform for creating blogs, websites, and applications with a vast ecosystem of themes and plugins.",
+        "tags": [
+            "cms",
+            "php"
+        ],
+        "link": "https://wordpress.com/",
+        "developer": "WordPress.com",
+        "headers": [
+            "^.*\\bWordPress\\b.*$"
+        ],
+        "html": [
+            "\\bwp-content",
+            "\\bwp-includes",
+            "<link[^>]*wp-emoji-release[.]min[.]js"
+        ]
+    }
+}
