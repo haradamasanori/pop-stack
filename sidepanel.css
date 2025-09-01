@@ -1,6 +1,8 @@
-/* Add any custom styles here */
+/* Responsive sidepanel layout */
 body {
-  width: 300px;
+  min-width: 280px; /* Minimum usable width */
+  max-width: 100%;
+  width: 100%;
 }
 
 /* Line clamp utility for descriptions */
@@ -11,15 +13,76 @@ body {
   overflow: hidden;
 }
 
-/* Improve card spacing and layout */
-#tech-list {
-  max-width: 100%;
+/* Expanded description state */
+.expanded-description {
+  display: block;
+  -webkit-line-clamp: unset;
+  -webkit-box-orient: unset;
+  overflow: visible;
 }
 
+/* Responsive tech cards */
+#tech-list {
+  width: 100%;
+}
+
+.tech-card {
+  width: 100%;
+  max-width: none;
+}
+
+/* Responsive card layout */
+@media (min-width: 400px) {
+  .tech-card {
+    /* Allow cards to be wider on larger sidepanels */
+  }
+}
+
+@media (min-width: 600px) {
+  #tech-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+  
+  .tech-card {
+    margin-bottom: 0; /* Remove margin since grid handles spacing */
+  }
+  
+  /* Override space-y utility when using grid */
+  #tech-list > * + * {
+    margin-top: 0;
+  }
+}
+
+/* Link styling */
 .card-title a {
   text-decoration: none;
 }
 
 .card-title a:hover {
   text-decoration: underline;
+}
+
+/* Ensure proper scrolling */
+main {
+  min-height: 0; /* Allow flex item to shrink below content size */
+}
+
+/* Responsive text sizing */
+@media (min-width: 400px) {
+  .card-title {
+    font-size: 1rem;
+  }
+}
+
+/* Tag badges responsive sizing */
+.badge {
+  font-size: 0.7rem;
+}
+
+@media (min-width: 400px) {
+  .badge {
+    font-size: 0.75rem;
+  }
 }

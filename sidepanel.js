@@ -15,14 +15,14 @@ function createTechCard(tech) {
   const developer = isRichObject ? tech.developer : '';
 
   const card = document.createElement('div');
-  card.className = 'card bg-base-200 shadow-sm';
+  card.className = 'tech-card card bg-base-200 shadow-sm w-full';
   
   const cardBody = document.createElement('div');
-  cardBody.className = 'card-body p-3';
+  cardBody.className = 'card-body p-3 sm:p-4';
   
   // Title with optional link
   const title = document.createElement('h3');
-  title.className = 'card-title text-sm';
+  title.className = 'card-title text-sm sm:text-base';
   if (link) {
     title.innerHTML = `<a href="${link}" target="_blank" class="link link-primary">${name}</a>`;
   } else {
@@ -41,16 +41,48 @@ function createTechCard(tech) {
   // Description
   if (description) {
     const desc = document.createElement('p');
-    desc.className = 'text-xs text-base-content/80 line-clamp-2';
-    desc.textContent = description;
+    desc.className = 'text-xs sm:text-sm text-base-content/80 line-clamp-2 cursor-pointer hover:text-base-content transition-colors';
+    desc.title = 'Click to expand/collapse';
+    
+    // Store original description
+    const originalDescription = description;
+    let isExpanded = false;
+    
+    // Function to update description display
+    const updateDescription = () => {
+      if (isExpanded) {
+        desc.textContent = originalDescription + ' (click to collapse)';
+        desc.classList.remove('line-clamp-2');
+        desc.classList.add('expanded-description');
+      } else {
+        // Check if description is long enough to need truncation
+        desc.textContent = originalDescription;
+        desc.classList.add('line-clamp-2');
+        desc.classList.remove('expanded-description');
+      }
+    };
+    
+    // Initial display
+    updateDescription();
+    
+    // Add click handler to toggle full description
+    desc.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      isExpanded = !isExpanded;
+      updateDescription();
+    });
+    
     cardBody.appendChild(desc);
   }
   
   // Tags
   if (tags.length > 0) {
     const tagsDiv = document.createElement('div');
-    tagsDiv.className = 'flex flex-wrap gap-1 mt-1';
-    tags.slice(0, 3).forEach(tag => {
+    tagsDiv.className = 'flex flex-wrap gap-1 mt-2';
+    const maxTags = window.innerWidth > 400 ? 4 : 3; // Show more tags on wider panels
+    tags.slice(0, maxTags).forEach(tag => {
       const badge = document.createElement('span');
       badge.className = 'badge badge-xs badge-outline';
       badge.textContent = tag;
