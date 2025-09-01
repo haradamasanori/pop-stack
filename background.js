@@ -7,13 +7,30 @@ const readyPanels = new Set();
 // Cache for configuration
 let techConfig = null;
 
-// Load configuration
+// Load configuration and compile regex patterns
 async function loadConfig() {
   if (techConfig) return techConfig;
   try {
     const configUrl = chrome.runtime.getURL('config.json');
     const response = await fetch(configUrl);
-    techConfig = await response.json();
+    const rawConfig = await response.json();
+    
+    // Pre-compile regex patterns for performance
+    techConfig = {};
+    Object.entries(rawConfig).forEach(([key, config]) => {
+      techConfig[key] = {
+        ...config,
+        compiledHeaderPatterns: (config.headers || []).map(pattern => {
+          try {
+            return { pattern, regex: new RegExp(pattern, 'i') };
+          } catch (error) {
+            console.warn(`Background: Invalid header regex pattern for ${config.name}:`, pattern, error);
+            return null;
+          }
+        }).filter(Boolean) // Remove null entries from invalid patterns
+      };
+    });
+    
     console.log('Background: Configuration loaded:', Object.keys(techConfig).length, 'technologies');
     return techConfig;
   } catch (error) {
@@ -40,33 +57,28 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders) {
   // Convert headers to individual header strings for pattern matching
   const headerStrings = responseHeaders.map(h => `${h.name.toLowerCase()}: ${h.value || ''}`);
   
-  // Iterate through all configured technologies that have header patterns
+  // Iterate through all configured technologies that have compiled header patterns
   Object.entries(techConfig).forEach(([key, config]) => {
-    const { name, headers: headerPatterns = [] } = config;
+    const { name, compiledHeaderPatterns = [] } = config;
     
-    // Check header patterns using regex against each header line
-    for (const pattern of headerPatterns) {
-      try {
-        const regex = new RegExp(pattern, 'i');
-        // Test pattern against each header line
-        const matchedHeader = headerStrings.find(headerLine => regex.test(headerLine));
-        if (matchedHeader) {
-          entry.headerTechs.set(key, {
-            key,
-            name,
-            description: config.description || '',
-            link: config.link || '',
-            tags: config.tags || [],
-            developer: config.developer || '',
-            detectionMethod: 'HTTP Headers',
-            pattern,
-            matchedHeader // Include which header matched for debugging
-          });
-          console.log(`Background: Detected ${name} via header pattern: ${pattern} (matched: ${matchedHeader})`);
-          break; // Only add once per technology
-        }
-      } catch (error) {
-        console.warn(`Background: Invalid header regex pattern for ${name}:`, pattern, error);
+    // Check compiled header patterns against each header line
+    for (const { pattern, regex } of compiledHeaderPatterns) {
+      // Test pattern against each header line
+      const matchedHeader = headerStrings.find(headerLine => regex.test(headerLine));
+      if (matchedHeader) {
+        entry.headerTechs.set(key, {
+          key,
+          name,
+          description: config.description || '',
+          link: config.link || '',
+          tags: config.tags || [],
+          developer: config.developer || '',
+          detectionMethod: 'HTTP Headers',
+          pattern,
+          matchedHeader // Include which header matched for debugging
+        });
+        console.log(`Background: Detected ${name} via header pattern: ${pattern} (matched: ${matchedHeader})`);
+        break; // Only add once per technology
       }
     }
   });
