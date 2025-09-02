@@ -14,84 +14,63 @@ function createTechCard(tech) {
   const tags = isRichObject ? tech.tags : [];
   const developer = isRichObject ? tech.developer : '';
 
-  const card = document.createElement('div');
-  card.className = 'tech-card card bg-base-200 shadow-sm w-full';
+  // Clone the template
+  const template = document.getElementById('tech-card-template');
+  const card = template.content.cloneNode(true);
   
-  const cardBody = document.createElement('div');
-  cardBody.className = 'card-body p-3 sm:p-4';
+  // Get elements
+  const titleElement = card.querySelector('[data-title]');
+  const descElement = card.querySelector('[data-description]');
+  const tagsElement = card.querySelector('[data-tags]');
   
-  // Title with optional link
-  const title = document.createElement('h3');
-  title.className = 'card-title text-sm sm:text-base';
-  if (link) {
-    title.innerHTML = `<a href="${link}" target="_blank" class="link link-primary">${name}</a>`;
-  } else {
-    title.textContent = name;
-  }
-  cardBody.appendChild(title);
+  // Set title with optional link and developer info in a single inline span
+  const titleContent = link 
+    ? `<a href="${link}" target="_blank" class="link link-primary">${name}</a>${developer ? ` <span class="text-[10px] text-base-content/50 font-normal">by ${developer}</span>` : ''}`
+    : `${name}${developer ? ` <span class="text-[10px] text-base-content/50 font-normal">by ${developer}</span>` : ''}`;
   
-  // Developer info
-  if (developer) {
-    const devInfo = document.createElement('p');
-    devInfo.className = 'text-xs text-base-content/70 -mt-1';
-    devInfo.textContent = `by ${developer}`;
-    cardBody.appendChild(devInfo);
-  }
+  titleElement.innerHTML = `<span class="inline">${titleContent}</span>`;
   
-  // Description
+  // Set description if available
   if (description) {
-    const desc = document.createElement('p');
-    desc.className = 'text-xs sm:text-sm text-base-content/80 line-clamp-2 cursor-pointer hover:text-base-content transition-colors';
-    desc.title = 'Click to expand/collapse';
+    descElement.style.display = 'block';
     
-    // Store original description
-    const originalDescription = description;
+    // Store original description and setup toggle
     let isExpanded = false;
     
-    // Function to update description display
     const updateDescription = () => {
       if (isExpanded) {
-        desc.textContent = originalDescription + ' (click to collapse)';
-        desc.classList.remove('line-clamp-2');
-        desc.classList.add('expanded-description');
+        descElement.classList.remove('line-clamp-2');
+        descElement.classList.add('expanded-description');
+        descElement.textContent = description + ' (click to collapse)';
       } else {
-        // Check if description is long enough to need truncation
-        desc.textContent = originalDescription;
-        desc.classList.add('line-clamp-2');
-        desc.classList.remove('expanded-description');
+        descElement.classList.remove('expanded-description');
+        descElement.classList.add('line-clamp-2');
+        descElement.textContent = description;
       }
     };
     
-    // Initial display
-    updateDescription();
+    // Ensure we start with the right classes
+    descElement.classList.remove('expanded-description');
+    descElement.classList.add('line-clamp-2');
+    descElement.textContent = description;
     
-    // Add click handler to toggle full description
-    desc.addEventListener('click', (e) => {
+    descElement.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      
       isExpanded = !isExpanded;
       updateDescription();
     });
-    
-    cardBody.appendChild(desc);
   }
   
-  // Tags
+  // Set tags if available
   if (tags.length > 0) {
-    const tagsDiv = document.createElement('div');
-    tagsDiv.className = 'flex flex-wrap gap-1 mt-2';
-    const maxTags = window.innerWidth > 400 ? 4 : 3; // Show more tags on wider panels
-    tags.slice(0, maxTags).forEach(tag => {
-      const badge = document.createElement('span');
-      badge.className = 'badge badge-xs badge-outline';
-      badge.textContent = tag;
-      tagsDiv.appendChild(badge);
-    });
-    cardBody.appendChild(tagsDiv);
+    tagsElement.style.display = 'flex';
+    const maxTags = window.innerWidth > 400 ? 4 : 3;
+    tagsElement.innerHTML = tags.slice(0, maxTags)
+      .map(tag => `<span class="badge badge-xs badge-outline">${tag}</span>`)
+      .join('');
   }
   
-  card.appendChild(cardBody);
   return card;
 }
 

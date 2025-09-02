@@ -7,10 +7,10 @@ body {
 
 /* Line clamp utility for descriptions */
 .line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
 }
 
 /* Expanded description state */
@@ -21,38 +21,23 @@ body {
   overflow: visible;
 }
 
-/* Responsive tech cards */
+/* Override DaisyUI card-body default padding */
+.card-body {
+  padding: 0.25rem !important; /* 4px padding */
+}
+
+/* Single column responsive layout */
+
+/* Always single column layout - no grid for wide panels */
 #tech-list {
-  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .tech-card {
   width: 100%;
   max-width: none;
-}
-
-/* Responsive card layout */
-@media (min-width: 400px) {
-  .tech-card {
-    /* Allow cards to be wider on larger sidepanels */
-  }
-}
-
-@media (min-width: 600px) {
-  #tech-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 1rem;
-  }
-  
-  .tech-card {
-    margin-bottom: 0; /* Remove margin since grid handles spacing */
-  }
-  
-  /* Override space-y utility when using grid */
-  #tech-list > * + * {
-    margin-top: 0;
-  }
 }
 
 /* Link styling */
