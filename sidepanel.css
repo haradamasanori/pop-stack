@@ -11,6 +11,8 @@ body {
   -webkit-line-clamp: 2 !important;
   -webkit-box-orient: vertical !important;
   overflow: hidden !important;
+  transition: max-height 0.3s ease-in-out, opacity 0.2s ease-in-out;
+  max-height: 3em; /* Approximate height for 2 lines */
 }
 
 /* Expanded description state */
@@ -19,6 +21,32 @@ body {
   -webkit-line-clamp: unset;
   -webkit-box-orient: unset;
   overflow: visible;
+  transition: max-height 0.3s ease-in-out, opacity 0.2s ease-in-out;
+  max-height: none;
+  animation: expandText 0.3s ease-out;
+}
+
+/* Animation keyframes */
+@keyframes expandText {
+  from {
+    max-height: 3em;
+    opacity: 0.7;
+  }
+  to {
+    max-height: 20em; /* Large enough for most descriptions */
+    opacity: 1;
+  }
+}
+
+@keyframes collapseText {
+  from {
+    max-height: 20em;
+    opacity: 1;
+  }
+  to {
+    max-height: 3em;
+    opacity: 0.7;
+  }
 }
 
 /* Override DaisyUI card-body default padding */

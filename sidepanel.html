@@ -4,8 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Web Stack Spy</title>
-  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.2/dist/full.min.css" rel="stylesheet" type="text/css" />
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="daisyui.min.css" rel="stylesheet" type="text/css" />
   <link href="sidepanel.css" rel="stylesheet">
 </head>
 <body class="h-screen flex flex-col">
@@ -21,15 +20,15 @@
     </div>
   </main>
   
-  <footer class="flex-shrink-0 p-4 border-t border-base-300">
+  <footer class="flex-shrink-0 p-2 border-t border-base-300">
     <button id="dump-btn" class="btn btn-sm">Dump tabDetections</button>
     <pre id="dump-area" class="mt-2 bg-base-300 p-2 rounded w-full overflow-auto text-xs" style="max-height:150px;"></pre>
   </footer>
 
   <!-- Tech card template -->
   <template id="tech-card-template">
-    <div class="tech-card card bg-base-200 shadow-sm w-full m-1 p-1">
-      <div class="card-body p-0">
+    <div class="tech-card card card-bordered bg-neutral text-primary-content shadow-sm w-full m-2">
+      <div class="card-body p-2">
         <h3 class="card-title text-sm whitespace-nowrap overflow-hidden text-ellipsis" data-title></h3>
         <p class="text-xs sm:text-sm text-base-content/80 line-clamp-2 cursor-pointer hover:text-base-content transition-colors" 
            data-description 

@@ -17,43 +17,49 @@ function createTechCard(tech) {
   // Clone the template
   const template = document.getElementById('tech-card-template');
   const card = template.content.cloneNode(true);
-  
+
   // Get elements
   const titleElement = card.querySelector('[data-title]');
   const descElement = card.querySelector('[data-description]');
   const tagsElement = card.querySelector('[data-tags]');
-  
+
   // Set title with optional link and developer info in a single inline span
-  const titleContent = link 
-    ? `<a href="${link}" target="_blank" class="link link-primary">${name}</a>${developer ? ` <span class="text-[10px] text-base-content/50 font-normal">by ${developer}</span>` : ''}`
-    : `${name}${developer ? ` <span class="text-[10px] text-base-content/50 font-normal">by ${developer}</span>` : ''}`;
-  
+  const titleContent = link
+    ? `<a href="${link}" target="_blank" class="link link-primary">${name}</a>${developer 
+      ? ` <span class="text-[10px] text-base-content/50 font-normal">by ${developer}</span>` : ''}`
+    : `${name}${developer ? ` <span class="text-sm text-base-content/50 font-normal">by ${developer}</span>` : ''}`;
+
   titleElement.innerHTML = `<span class="inline">${titleContent}</span>`;
-  
+
   // Set description if available
   if (description) {
     descElement.style.display = 'block';
-    
+
     // Store original description and setup toggle
     let isExpanded = false;
-    
+
     const updateDescription = () => {
       if (isExpanded) {
         descElement.classList.remove('line-clamp-2');
         descElement.classList.add('expanded-description');
         descElement.textContent = description + ' (click to collapse)';
       } else {
-        descElement.classList.remove('expanded-description');
-        descElement.classList.add('line-clamp-2');
-        descElement.textContent = description;
+        // Add collapse animation before switching to clamped state
+        descElement.style.animation = 'collapseText 0.3s ease-in';
+        setTimeout(() => {
+          descElement.classList.remove('expanded-description');
+          descElement.classList.add('line-clamp-2');
+          descElement.textContent = description;
+          descElement.style.animation = '';
+        }, 300);
       }
     };
-    
+
     // Ensure we start with the right classes
     descElement.classList.remove('expanded-description');
     descElement.classList.add('line-clamp-2');
     descElement.textContent = description;
-    
+
     descElement.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -61,7 +67,7 @@ function createTechCard(tech) {
       updateDescription();
     });
   }
-  
+
   // Set tags if available
   if (tags.length > 0) {
     tagsElement.style.display = 'flex';
@@ -70,7 +76,7 @@ function createTechCard(tech) {
       .map(tag => `<span class="badge badge-xs badge-outline">${tag}</span>`)
       .join('');
   }
-  
+
   return card;
 }
 
@@ -188,7 +194,7 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
 
   // Request content analysis for this tab now that the panel is ready
   try {
-    chrome.runtime.sendMessage({ action: 'requestAnalyze', tabId }, () => {});
+    chrome.runtime.sendMessage({ action: 'requestAnalyze', tabId }, () => { });
   } catch (e) {
     // ignore
   }
