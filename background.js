@@ -311,8 +311,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         technologies: [], 
         headerTechs: [] 
       };
-      chrome.runtime.sendMessage({ action: 'updateTechList', technologies: payload.technologies }, () => { });
-      chrome.runtime.sendMessage({ action: 'updateHeaderTechs', headerTechs: payload.headerTechs }, () => { });
+      chrome.runtime.sendMessage({ action: 'updateTechList', tabId, technologies: payload.technologies }, () => { });
+      chrome.runtime.sendMessage({ action: 'updateHeaderTechs', tabId, headerTechs: payload.headerTechs }, () => { });
     }
     return; // handled
   }
@@ -341,7 +341,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       entry.technologies = Array.isArray(message.technologies) ? message.technologies : [];
       // Forward to side panel UI only if a panel instance is ready for this tab
       if (readyPanels.has(tabId)) {
-        chrome.runtime.sendMessage({ action: 'updateTechList', technologies: entry.technologies }, () => { });
+        chrome.runtime.sendMessage({ action: 'updateTechList', tabId, technologies: entry.technologies }, () => { });
       }
     }
     return; // handled

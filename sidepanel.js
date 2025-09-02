@@ -5,6 +5,7 @@ const dumpArea = document.getElementById('dump-area');
 // Maintain current state so we can render a merged view
 let currentTechs = [];
 let currentHeaderTechs = [];
+let currentTabId = null;
 
 function createTechCard(tech) {
   const isRichObject = typeof tech === 'object' && tech.name;
@@ -145,6 +146,12 @@ function renderDump(entry) {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('chrome.runtime.onMessage.addListener called', { message, sender });
+  
+  // Only process messages for this tab
+  if (message.tabId && currentTabId && message.tabId !== currentTabId) {
+    return;
+  }
+  
   if (message.action === 'updateTechList') {
     updateTechList(message.technologies);
   } else if (message.action === 'updateHeaderTechs') {
@@ -176,6 +183,7 @@ requestDump();
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   console.log('chrome.tabs.query called', { tabs });
   const tabId = tabs[0].id;
+  currentTabId = tabId; // Store current tab ID for message filtering
   // Notify background that the panel is ready to receive updates for this tab
   chrome.runtime.sendMessage({ action: 'panelReady', tabId }, (res) => {
     // ignore response; background will send current state after registering readiness
