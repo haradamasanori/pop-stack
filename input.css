@@ -1,0 +1,4 @@
+@import "tailwindcss" source(none);
+@plugin "./daisyui.js";
+@source "sidepanel.{js,css,html}";
+

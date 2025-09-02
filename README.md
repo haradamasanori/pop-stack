@@ -1,63 +1,73 @@
-Web Stack Spy
-===============
+# WebStackSpy
 
-A small Chrome Manifest V3 extension that analyzes web pages and exposes a tab-specific side panel.
+A tool to detect the technology stack of any website.
 
-What changed
-------------
-- The background service worker enables and opens the side panel only for the tab where the user clicks the extension action.
-- The background script automatically disables the tab-specific side panel when the tab is switched or closed.
+## 📝 Overview
 
-How to load locally (Developer mode)
-------------------------------------
-1. Open Chrome and navigate to chrome://extensions
-2. Enable "Developer mode" (toggle in the top-right)
-3. Click "Load unpacked" and select this repository folder (`webstackspy`)
+WebStackSpy is a web technology analysis tool designed to identify the frameworks, libraries, servers, and other technologies used to build a website. By analyzing a website's HTML content, HTTP headers, and domain information, it provides insights into its underlying technology stack.
 
-How to test
------------
-1. Open two tabs (A and B) with arbitrary pages.
-2. Click the extension action in tab A. The side panel should open and show the extension's `sidepanel.html` content in tab A only.
-3. Switch to tab B — the extension should have disabled the side panel for tab A (so it won't remain active on other tabs).
-4. Click the extension action in tab B — the panel should enable and open for tab B, and be disabled for any previous tab where it was open.
+The project features a clean, modern user interface built with Tailwind CSS and daisyUI.
 
-Notes
------
-- The extension relies on Chrome 116+ side panel APIs (check availability in your Chrome version).
-- There is defensive error handling to tolerate older Chrome versions that may not fully support all `sidePanel` APIs.
+## ✨ Features
 
-HTTP response header inspection
-------------------------------
-This extension now inspects HTTP response headers using the `webRequest` API to detect server and framework hints (for example `Server: nginx` or `X-Powered-By`). The detected header information is merged with content-script detections and shown in the side panel.
+-   **Comprehensive Technology Detection**: Identifies a wide range of technologies including frontend frameworks, CSS libraries, analytics tools, web servers, CDNs, and cloud platforms.
+-   **Multiple Detection Methods**: Utilizes various heuristics for detection:
+    -   HTML content scanning for specific tags, scripts, or comments.
+    -   HTTP header analysis for server signatures and framework-specific headers.
+    -   Domain name and DNS record inspection.
+-   **Detailed Information**: Provides descriptions, developer information, and official links for each detected technology.
+-   **Configurable**: The detection logic is driven by a simple `config.json` file, making it easy to extend and add new technologies.
 
-Permissions: the extension requests the `webRequest` permission to read response headers for loaded pages.
+## 🛠️ Technologies Detected
 
-Next steps (optional)
----------------------
-- Add an options page to let users choose global vs tab-specific behavior.
-- Add unit tests or an automated test harness.
+WebStackSpy can detect a variety of technologies across different categories. Here's a summary based on the current configuration:
 
-State management
-----------------
-In order to minimize the negative impact to browsing performance, analysis is done only when the user has activated the extension by clicking the action button and opening the side panel.
+| Category                | Examples                                                                                             |
+| ----------------------- | ---------------------------------------------------------------------------------------------------- |
+| **Web Frameworks (JS)** | Angular, React, Vue.js, Next.js, Nuxt, Ember.js, Backbone.js, HTMX, jQuery                            |
+| **Web Frameworks (PHP)**| Laravel, Symfony, CakePHP, CodeIgniter, Drupal, WordPress, Joomla!                                   |
+| **Web Frameworks (PY)** | Django, Reflex, Masonite, TurboGears, web2py                                                         |
+| **CSS Frameworks**      | Tailwind CSS, daisyUI, Chakra UI, Sass                                                               |
+| **HTTP Servers**        | Nginx, Apache, Express, Varnish, Envoy                                                               |
+| **Analytics**           | Google Analytics, Google Tag Manager                                                                 |
+| **CDN & Cloud**         | Cloudflare, AWS (CloudFront), Google Cloud Platform, Vercel, Netlify, Heroku, Azure, Akamai, Fastly |
+| **CMS**                 | WordPress, Drupal, Joomla!, TYPO3, Squarespace, Webflow, Wix, Framer                                 |
 
-- The side panel is opened and closed by the user with the action button.
-- Analysis is performed only on tabs where the side panel is opened.
-  - Multiple tabs can have the side panel opened at the same time.
-- sidepanel.js keeps detection states of all tabs of the window in a map variable.
-  - Key is tab id. 
-  - Value is a map containing the url, HTML-based results, and HTTP-based results. 
-- The sidepanel updates HTML content as the result map of the current tab changes.
-- When a tab is closed, its entry is removed from the result map.
-- When a tab is newly opened, no analysis is performed because the side panel is closed by default.
-- When user switches tabs, the sidepanel renders the results for the current tab in the result map.
-- When the side panel is opened on an existing tab, sidepanel.js sends a message to the tab's content script to analyze HTML. HTTP-based results are expected to be missing until the page is reloaded.
-- When the tab navigates to a new url (including reloading the current url), the current result of the tab is cleared first and then both HTML-based and HTTP-based analysis will happen.
-- Closing the side panel doesn't clear the results. Re-opening the side panel and it immediately shows the results stored in the map.
+## ⚙️ How It Works
 
-Hints for implementing the above requirements:
-- Setting PanelBehavior with openPanelOnActionClick: true is sufficient to toggle the side panel with the action button. The extension doesn't register a global side panel in the manifest.
-- Chrome Extension side panel's open/close state is per tab if we set PanelOptions without tabId field.
-- Messages are passed between content.js and sidepanel.js. background.js can contain minimal initialization code that should run before the side panel is opened.
-- When there are multiple Chrome windows, different windows have different side panel instances. Each side panel instance can handle tabs on the same window only.
-- Tab ids are unique across multiple windows. No need to use window id to separate them.
+The core of WebStackSpy is the `config.json` file. This file contains a collection of technology definitions, each with a set of rules for detection.
+
+Each technology entry in `config.json` can have the following detection patterns:
+
+-   `html`: An array of regular expressions to match against the website's HTML source.
+-   `headers`: An array of regular expressions to match against the HTTP response headers.
+-   `domains`: An array of regular expressions to match against the website's domain or related domains (e.g., from CNAME records).
+
+When analyzing a URL, WebStackSpy fetches the website's content and headers, then iterates through the `config.json` to find matches.
+
+### Example Configuration (`react`)
+
+```json
+"react": {
+    "name": "React",
+    "description": "React is a free and open-source front-end JavaScript library...",
+    "tags": [
+        "web_framework",
+        "javascript"
+    ],
+    "link": "https://reactjs.org/",
+    "developer": "Meta",
+    "html": [
+        "<script[^>]*\\breact[^>]*\\.js",
+        "<div[^>]*data-reactroot",
+        "<div[^>]*id=\"react-root\""
+    ]
+}
+```
+
+## 🎨 Frontend
+
+The user interface is built with:
+
+-   **Tailwind CSS**: A utility-first CSS framework for rapid UI development.
+-   **daisyUI**: A component library for Tailwind CSS, providing a set of pre-styled components. The project uses `daisyui.js` and the compiled `output.css`.
