@@ -5,14 +5,18 @@ if (window !== window.top) {
 
 let detectedTechsByTab = {};
 let techConfig = null;
+let idleDetectionScheduled = false;
 
 // Load configuration
 async function loadConfig() {
+  console.log('loadConfig() called');
   try {
     const configUrl = chrome.runtime.getURL('config.json');
+    console.log('Fetching config from:', configUrl);
     const response = await fetch(configUrl);
+    console.log('Config fetch response status:', response.status);
     techConfig = await response.json();
-    console.log('Configuration loaded:', Object.keys(techConfig).length, 'technologies');
+    console.log('Configuration loaded successfully:', Object.keys(techConfig).length, 'technologies');
   } catch (error) {
     console.error('Failed to load config.json:', error);
     techConfig = {};
@@ -43,11 +47,18 @@ function detectTechnologies() {
     return detected;
   }
 
+  console.log('Processing', Object.keys(techConfig).length, 'technologies');
+
   // Iterate through all configured technologies
   Object.entries(techConfig).forEach(([key, config]) => {
     const { name, selectors = [], html: htmlPatterns = [], description, link, tags, developer } = config;
     let matchedTexts = [];
     let isDetected = false;
+    
+    // Debug: log technology being processed
+    if (key === 'react' || key === 'jquery' || key === 'wordpress') {
+      console.log(`Processing ${name}:`, { selectors: selectors.length, htmlPatterns: htmlPatterns.length });
+    }
 
     // Try querySelector patterns first (faster)
     if (selectors.length > 0) {
@@ -56,6 +67,11 @@ function detectTechnologies() {
           const elements = document.querySelectorAll(selector);
           if (elements.length > 0) {
             isDetected = true;
+            
+            // Debug: log successful detection
+            if (key === 'react' || key === 'jquery' || key === 'wordpress') {
+              console.log(`✓ ${name} detected via selector: ${selector} (${elements.length} elements)`);
+            }
             
             // Extract meaningful text from matched elements
             elements.forEach((element, index) => {
@@ -105,9 +121,8 @@ function detectTechnologies() {
       }
     }
 
-    const use_html_regexps = false;
     // Fallback to HTML regex patterns if no selector matches
-    if (use_html_regexps && !isDetected && htmlPatterns.length > 0) {
+    if (!isDetected && htmlPatterns.length > 0) {
       // Only construct HTML string if needed for fallback
       const html = document.documentElement.outerHTML;
       
@@ -142,7 +157,12 @@ function detectTechnologies() {
           }
           
           if (isDetected) {
-            console.log(`Detected ${name} via HTML regex: ${pattern} (${matchedTexts.length} matches)`);
+            // Debug: log successful HTML detection
+            if (key === 'react' || key === 'jquery' || key === 'wordpress') {
+              console.log(`✓ ${name} detected via HTML regex: ${pattern} (${matchedTexts.length} matches)`);
+            } else {
+              console.log(`Detected ${name} via HTML regex: ${pattern} (${matchedTexts.length} matches)`);
+            }
             break; // Stop after first successful pattern
           }
         } catch (error) {
@@ -170,21 +190,97 @@ function detectTechnologies() {
   return detected;
 }
 
+function scheduleIdleDetection(tabId) {
+  if (idleDetectionScheduled) return;
+  idleDetectionScheduled = true;
+  
+  // Use requestIdleCallback with fallback to setTimeout
+  const runIdleDetection = () => {
+    console.log('Running idle detection for lazy-loaded elements');
+    
+    if (!shouldAnalyzePage()) {
+      console.log('Skipping idle detection - not an HTML page');
+      return;
+    }
+    
+    const idleDetected = detectTechnologies();
+    const initialResults = detectedTechsByTab[tabId] || [];
+    const mergedResults = mergeDetectionResults(initialResults, idleDetected);
+    
+    // Only send update if we found new technologies
+    if (mergedResults.length > initialResults.length) {
+      console.log(`Idle detection found ${mergedResults.length - initialResults.length} new technologies`);
+      
+      // Update stored results
+      detectedTechsByTab[tabId] = mergedResults;
+      
+      // Send merged results to background script
+      chrome.runtime.sendMessage({
+        action: 'detectedTechs',
+        technologies: mergedResults,
+        tabId: tabId
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.debug('Failed to send idle detection results to background:', chrome.runtime.lastError.message);
+        }
+      });
+    } else {
+      console.log('Idle detection found no new technologies');
+    }
+  };
+
+  // Try requestIdleCallback first, with timeout fallback
+  if (window.requestIdleCallback) {
+    window.requestIdleCallback(runIdleDetection, { timeout: 5000 });
+  } else {
+    // Fallback for browsers without requestIdleCallback
+    setTimeout(runIdleDetection, 2000);
+  }
+}
+
+function mergeDetectionResults(initial, idle) {
+  const merged = [...initial];
+  const existingKeys = new Set(initial.map(tech => tech.key));
+  
+  // Add new technologies from idle detection
+  idle.forEach(tech => {
+    if (!existingKeys.has(tech.key)) {
+      merged.push(tech);
+      existingKeys.add(tech.key);
+    } else {
+      // Merge matched texts for existing technologies
+      const existingTech = merged.find(t => t.key === tech.key);
+      if (existingTech && tech.matchedTexts) {
+        const combinedTexts = [...(existingTech.matchedTexts || []), ...(tech.matchedTexts || [])];
+        existingTech.matchedTexts = [...new Set(combinedTexts)].slice(0, 5); // Deduplicate and limit
+      }
+    }
+  });
+  
+  return merged;
+}
+
 async function analyzeContent() {
   console.log('analyzeContent called');
   
   // Skip analysis for non-HTML pages
   if (!shouldAnalyzePage()) {
+    console.log('Skipping analysis - not an HTML page');
     chrome.runtime.sendMessage({ action: 'detectedTechs', technologies: [] });
     return;
   }
   
+  console.log('Proceeding with analysis - HTML page detected');
+  
   // Load config on-demand only for HTML pages that need analysis
   if (!techConfig) {
+    console.log('Loading configuration...');
     await loadConfig();
   }
   
+  console.log('About to call detectTechnologies()');
   const technologies = detectTechnologies();
+  console.log('detectTechnologies() returned:', technologies);
   // Store detected technologies for the current tab
   chrome.runtime.sendMessage({ action: 'getTabId' }, (response) => {
     const tabId = response && response.tabId ? response.tabId : null;
@@ -192,6 +288,9 @@ async function analyzeContent() {
       detectedTechsByTab[tabId] = technologies;
       chrome.runtime.sendMessage({ action: 'detectedTechs', technologies: technologies, tabId: tabId });
       console.log('chrome.runtime.sendMessage called', { technologies, tabId });
+      
+      // Schedule idle detection for lazy-loaded elements
+      scheduleIdleDetection(tabId);
     } else {
       chrome.runtime.sendMessage({ action: 'detectedTechs', technologies: technologies });
       console.log('chrome.runtime.sendMessage called', { technologies });
@@ -200,9 +299,12 @@ async function analyzeContent() {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log('Content script received message:', message);
   if (message.action === 'analyze') {
+    console.log('Received analyze message, calling analyzeContent()');
     analyzeContent();
   } else if (message.action === 'getDetectedTechs') {
+    console.log('Received getDetectedTechs message for tabId:', message.tabId);
     const tabId = message.tabId;
     if (detectedTechsByTab[tabId]) {
       sendResponse({ technologies: detectedTechsByTab[tabId] });
@@ -220,6 +322,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const technologies = detectTechnologies();
         detectedTechsByTab[tabId] = technologies;
         sendResponse({ technologies });
+        
+        // Schedule idle detection for lazy-loaded elements
+        scheduleIdleDetection(tabId);
       })();
     }
     return true; // Indicates that the response is sent asynchronously
@@ -227,5 +332,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 } // End of main frame check
+
+// Debug: Log that content script has loaded
+console.log('WebStackSpy content script loaded successfully', {
+  url: window.location.href,
+  isMainFrame: window === window.top,
+  documentReadyState: document.readyState
+});
+
 // Note: content script no longer auto-runs analysis on load. Analysis is
 // performed when the side panel requests it (via background forwarding).

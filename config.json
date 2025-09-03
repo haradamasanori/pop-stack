@@ -291,7 +291,7 @@
             "google-analytics[.]com"
         ],
         "selectors": [
-            "script[src*='google-analytics.com']",
+            "script[src*='google-analytics.com']"
         ]
     },
     "gtm": {
