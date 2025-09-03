@@ -11,6 +11,10 @@
         "developer": "Google LLC",
         "html": [
             "<script[^>]*\\bangular[.].*?>"
+        ],
+        "selectors": [
+            "script[src*='angular']",
+            "script[src*='@angular']"
         ]
     },
     "aurelia": {
@@ -24,6 +28,9 @@
         "developer": "Aurelia Core Team",
         "html": [
             "<script[^>]*\\baurelia.*?>"
+        ],
+        "selectors": [
+            "script[src*='aurelia']"
         ]
     },
     "backbone": {
@@ -37,6 +44,9 @@
         "developer": "Jeremy Ashkenas",
         "html": [
             "<script[^>]*backbone[^>]*\\.js"
+        ],
+        "selectors": [
+            "script[src*='backbone']"
         ]
     },
     "ember": {
@@ -50,6 +60,9 @@
         "developer": "Ember Core Team",
         "html": [
             "<script[^>]*ember[^>]*\\.js"
+        ],
+        "selectors": [
+            "script[src*='ember']"
         ]
     },
     "gatsby": {
@@ -66,6 +79,10 @@
         "developer": "Gatsby, Inc.",
         "html": [
             "<div[^>]*id=\"___gatsby\""
+        ],
+        "selectors": [
+            "div#___gatsby",
+            "script[src*='gatsby']"
         ]
     },
     "knockout": {
@@ -79,6 +96,9 @@
         "developer": "Steven Sanderson",
         "html": [
             "<script[^>]*knockout[^>]*\\.js"
+        ],
+        "selectors": [
+            "script[src*='knockout']"
         ]
     },
     "mootools": {
@@ -92,6 +112,9 @@
         "developer": "MooTools team",
         "html": [
             "<script[^>]*mootools[^>]*\\.js"
+        ],
+        "selectors": [
+            "script[src*='mootools']"
         ]
     },
     "polymer": {
@@ -105,6 +128,9 @@
         "developer": "The Polymer Authors",
         "html": [
             "<script[^>]*polymer[^>]*\\.js"
+        ],
+        "selectors": [
+            "script[src*='polymer']"
         ]
     },
     "reactivejs": {
@@ -118,6 +144,9 @@
         "developer": "ReactiveJS contributors",
         "html": [
             "<script[^>]*reactive[^>]*\\.js"
+        ],
+        "selectors": [
+            "script[src*='reactive']"
         ]
     },
     "react": {
@@ -133,6 +162,12 @@
             "<script[^>]*\\breact[^>]*\\.js",
             "<div[^>]*data-reactroot",
             "<div[^>]*id=\"react-root\""
+        ],
+        "selectors": [
+            "script[src*='react']",
+            "div[data-reactroot]",
+            "div#react-root",
+            "div#__next"
         ]
     },
     "riotjs": {
@@ -146,6 +181,9 @@
         "developer": "Riot.js community",
         "html": [
             "<script[^>]*riot[^>]*\\.js"
+        ],
+        "selectors": [
+            "script[src*='riot']"
         ]
     },
     "nextjs": {
@@ -166,6 +204,11 @@
         ],
         "headers": [
             ".*\\bnext[.]js\\b.*"
+        ],
+        "selectors": [
+            "script[src*='_next/static']",
+            "script[id='__NEXT_DATA__']",
+            "div[data-next-head-count]"
         ]
     },
     "nuxt": {
@@ -180,6 +223,10 @@
         "html": [
             "/_nuxt/",
             "\"__nuxt\""
+        ],
+        "selectors": [
+            "script[src*='/_nuxt/']",
+            "div#__nuxt"
         ]
     },
     "vue": {
@@ -193,6 +240,9 @@
         "developer": "Evan You and Vue.js contributors",
         "html": [
             "<script[^>]*vue[.]js"
+        ],
+        "selectors": [
+            "script[src*='vue']"
         ]
     },
     "jquery": {
@@ -207,6 +257,10 @@
             "<script[^>]*\\bjquery[.]",
             "https://ajax[.]googleapis[.]com/ajax/libs/jquery",
             "jquery[.]min[.]js"
+        ],
+        "selectors": [
+            "script[src*='jquery']",
+            "script[src*='ajax.googleapis.com/ajax/libs/jquery']"
         ]
     },
     "sass": {
@@ -219,6 +273,10 @@
         "developer": "Hampton Catlin, Michael \"Mike\" Bianchi, Chris Eppstein",
         "html": [
             "<link[^>]+[.]s[ac]ss"
+        ],
+        "selectors": [
+            "link[href$='.scss']",
+            "link[href$='.sass']"
         ]
     },
     "ga": {
@@ -231,6 +289,9 @@
         "developer": "Google",
         "html": [
             "google-analytics[.]com"
+        ],
+        "selectors": [
+            "script[src*='google-analytics.com']",
         ]
     },
     "gtm": {
@@ -243,6 +304,10 @@
         ],
         "html": [
             "googletagmanager[.]com"
+        ],
+        "selectors": [
+            "script[src*='googletagmanager.com']",
+            "iframe[src*='googletagmanager.com']"
         ]
     },
     "tailwindcss": {
@@ -255,6 +320,10 @@
         "developer": "Adam Wathan, Steve Schoger, and the Tailwind CSS team",
         "html": [
             "tailwindcss"
+        ],
+        "selectors": [
+            "script[src*='tailwindcss']",
+            "link[href*='tailwindcss']"
         ]
     },
     "chakraui": {
@@ -268,7 +337,11 @@
             "chakraui",
             "--chakra-"
         ],
-        "link": "https://chakra-ui.com/"
+        "link": "https://chakra-ui.com/",
+        "selectors": [
+            "style[data-emotion*='chakra']",
+            "div[class*='chakra-']"
+        ]
     },
     "daisyui": {
         "description": "daisyUI is a Tailwind CSS component library that adds a set of component classes to Tailwind CSS, making it easier to build common UI elements with pre-styled designs.",
@@ -280,7 +353,11 @@
         "html": [
             "cdn.jsdelivr.net/npm/daisyui"
         ],
-        "link": "https://daisyui.com/"
+        "link": "https://daisyui.com/",
+        "selectors": [
+            "script[src*='daisyui']",
+            "link[href*='daisyui']"
+        ]
     },
     "htmx": {
         "description": "HTMX is a library that allows you to access modern browser features directly from HTML, rather than using JavaScript. It enables you to build dynamic user interfaces with less JavaScript by leveraging HTML attributes for AJAX, CSS transitions, WebSockets, and Server Sent Events.",
@@ -294,6 +371,12 @@
         "html": [
             "unpkg.com/htmx",
             " hx-(?:get|post|target|indicator)="
+        ],
+        "selectors": [
+            "script[src*='htmx']",
+            "[hx-get]",
+            "[hx-post]",
+            "[hx-target]"
         ]
     },
     "nginx": {
@@ -589,6 +672,10 @@
         "description": "CodeIgniter is an open-source software rapid development web framework, for use in building dynamic web sites with PHP. It's known for its small footprint, exceptional performance, and clear documentation.",
         "html": [
             "<script[^>]*\\bcodeigniter.*?>"
+        ],
+        "selectors": [
+            "script[src*='codeigniter']",
+            "meta[name='generator'][content*='CodeIgniter']"
         ]
     },
     "yii": {
@@ -603,6 +690,11 @@
         "html": [
             "<script[^>]*\\byii[.]js",
             "\\byiiBaseUrl\\b"
+        ],
+        "selectors": [
+            "script[src*='yii.js']",
+            "script[src*='yii-']",
+            "meta[name='generator'][content*='Yii']"
         ]
     },
     "prado": {
@@ -618,6 +710,10 @@
             "<!--\\s*powered\\s+by\\s+prado",
             "PRADO_PAGESTATE",
             "Prado[.]WebUI"
+        ],
+        "selectors": [
+            "input[name='PRADO_PAGESTATE']",
+            "script[src*='prado']"
         ]
     },
     "laravel": {
@@ -634,6 +730,11 @@
         ],
         "headers": [
             "^.*\\blaravel\\b.*$"
+        ],
+        "selectors": [
+            "meta[name='generator'][content*='Laravel']",
+            "meta[name='csrf-token']",
+            "script[src*='laravel']"
         ]
     },
     "drupal": {
@@ -651,6 +752,11 @@
         ],
         "headers": [
             "^.*\\bdrupal.*$"
+        ],
+        "selectors": [
+            "[data-drupal-selector]",
+            "script[src*='/sites/default/files/js/']",
+            "meta[name='generator'][content*='Drupal']"
         ]
     },
     "typo3": {
@@ -668,6 +774,11 @@
         ],
         "headers": [
             "^.*\\btypo3.*$"
+        ],
+        "selectors": [
+            "meta[name='generator'][content*='TYPO3']",
+            "script[src*='typo3']",
+            "link[href*='typo3']"
         ]
     },
     "joomla": {
@@ -686,6 +797,10 @@
         ],
         "headers": [
             "^.*\\bjoomla.*$"
+        ],
+        "selectors": [
+            "script[type='application/json'][class='joomla-script-options']",
+            "meta[name='generator'][content*='Joomla']"
         ]
     },
     "django": {
@@ -699,6 +814,10 @@
         "description": "Django is a high-level Python web framework that encourages rapid development and clean, pragmatic design. It is built on the \"Don't Repeat Yourself\" (DRY) principle and provides a comprehensive set of tools and features for building complex, database-driven web applications quickly. Django is known for its \"batteries included\" approach, offering an ORM, admin panel, and authentication system out-of-the-box.",
         "headers": [
             "^.*\\bDjango\\b.*$"
+        ],
+        "selectors": [
+            "input[name='csrfmiddlewaretoken']",
+            "script[src*='django']"
         ]
     },
     "reflex": {
@@ -713,6 +832,10 @@
         "html": [
             "<script[^>]*_reflex/\\b",
             "<script[^>]*\\breflex_client[.]js"
+        ],
+        "selectors": [
+            "script[src*='_reflex/']",
+            "script[src*='reflex_client.js']"
         ]
     },
     "masonite": {
@@ -726,6 +849,10 @@
         "developer": "Masonite Community",
         "headers": [
             "^.*\\bMasonite\\b.*$"
+        ],
+        "selectors": [
+            "script[src*='masonite']",
+            "meta[name='generator'][content*='Masonite']"
         ]
     },
     "turbogears": {
@@ -742,6 +869,10 @@
         ],
         "html": [
             "<!--\\s*TurboGears\\s*-->"
+        ],
+        "selectors": [
+            "script[src*='turbogears']",
+            "meta[name='generator'][content*='TurboGears']"
         ]
     },
     "web2py": {
@@ -758,6 +889,10 @@
         ],
         "html": [
             "<script[^>]*web2py[^>]*\\.js"
+        ],
+        "selectors": [
+            "script[src*='web2py.js']",
+            "script[src*='web2py']"
         ]
     },
     "framer": {
@@ -771,6 +906,10 @@
         "html": [
             "Built with Framer",
             "<meta[^>]*framerusercontent[.]com[^>]*>"
+        ],
+        "selectors": [
+            "meta[content*='framerusercontent.com']",
+            "script[src*='framer']"
         ]
     },
     "squarespace": {
@@ -783,6 +922,10 @@
         "description": "Squarespace is a popular website builder and hosting service that allows individuals and businesses to create professional-looking websites without coding. It offers a drag-and-drop interface, customizable templates, and integrated e-commerce functionalities, making it easy to build portfolios, online stores, and blogs. Squarespace focuses on design aesthetics and user-friendliness.",
         "headers": [
             "^.*\\bSquarespace\\b.*$"
+        ],
+        "selectors": [
+            "script[src*='squarespace']",
+            "meta[name='generator'][content*='Squarespace']"
         ]
     },
     "unbounce": {
@@ -799,6 +942,10 @@
         "html": [
             "\\bub-page-overlay",
             "\\bunbounce[.]com/\\w+/"
+        ],
+        "selectors": [
+            "script[src*='unbounce.com']",
+            "div[class*='ub-page-overlay']"
         ]
     },
     "webflow": {
@@ -816,6 +963,11 @@
         "html": [
             "\\bwebflow[.]js",
             "\\bdata-wf-page\\b"
+        ],
+        "selectors": [
+            "script[src*='webflow.js']",
+            "[data-wf-page]",
+            "[data-wf-site]"
         ]
     },
     "wix": {
@@ -832,6 +984,11 @@
         "html": [
             "\\bwix[.]com/",
             "static[.]parastorage[.]com"
+        ],
+        "selectors": [
+            "script[src*='wix.com']",
+            "script[src*='static.parastorage.com']",
+            "meta[name='generator'][content*='Wix.com']"
         ]
     },
     "wordpress": {
@@ -850,6 +1007,13 @@
             "\\bwp-content",
             "\\bwp-includes",
             "<link[^>]*wp-emoji-release[.]min[.]js"
+        ],
+        "selectors": [
+            "link[href*='wp-content']",
+            "link[href*='wp-includes']",
+            "script[src*='wp-content']",
+            "script[src*='wp-includes']",
+            "meta[name='generator'][content*='WordPress']"
         ]
     }
 }
