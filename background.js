@@ -1,11 +1,50 @@
 
 // Keep a per-tab store of detected technologies
-// entry shape: { url: string|null, technologies: [], headerTechs: Map }
+// entry shape: { url: string|null, technologies: [], headerTechs: Map, analyzedUrls: Set }
 const tabDetections = new Map(); // tabId -> entry
 // Track which tabs currently have a listening side panel instance
 const readyPanels = new Set();
 // Cache for configuration
 let techConfig = null;
+
+// This function enables or disables the action button and side panel
+// based on the tab's URL.
+const updateActionAndSidePanel = async (tabId) => {
+  if (!tabId || tabId < 0) return; // Guard against invalid tab IDs
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    // The action should only be enabled for http and https pages.
+    if (tab.url && (tab.url.startsWith('http:') || tab.url.startsWith('https:'))) {
+      await chrome.action.enable(tabId);
+      await chrome.sidePanel.setOptions({
+        tabId,
+        path: 'sidepanel.html',
+        enabled: true,
+      });
+    } else {
+      // Disable for other schemes like chrome://, file://, etc.
+      await chrome.action.disable(tabId);
+      await chrome.sidePanel.setOptions({
+        tabId,
+        enabled: false,
+      });
+    }
+  } catch (error) {
+    // This can happen if the tab is closed before we can get its details.
+    // We can safely ignore this error.
+    console.debug(`Could not update action for tab ${tabId}:`, error.message);
+  }
+};
+
+// On initial installation, set the state for all existing tabs.
+chrome.runtime.onInstalled.addListener(async () => {
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.id) {
+      updateActionAndSidePanel(tab.id);
+    }
+  }
+});
 
 // Load configuration and compile regex patterns
 async function loadConfig() {
@@ -50,7 +89,7 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders) {
   
   let entry = tabDetections.get(tabId);
   if (!entry) {
-    entry = { headerTechs: new Map() };
+    entry = { headerTechs: new Map(), analyzedUrls: new Set() };
     tabDetections.set(tabId, entry);
   }
   
@@ -139,6 +178,34 @@ async function processResponseHeaders(details, tabId) {
   // changes.
   if (details.responseHeaders) {
     console.log('webRequest.onHeadersReceived', { tabId, url: details.url, responseHeaders: details.responseHeaders });
+    
+    // Check if this is an HTML response by looking at Content-Type header
+    const contentTypeHeader = details.responseHeaders.find(h => 
+      h.name.toLowerCase() === 'content-type'
+    );
+    const isHtmlContent = contentTypeHeader && 
+      contentTypeHeader.value && 
+      contentTypeHeader.value.toLowerCase().includes('text/html');
+    
+    // Only track URLs for HTML content that we actually analyze
+    if (isHtmlContent) {
+      let entry = tabDetections.get(tabId);
+      if (!entry) {
+        entry = { headerTechs: new Map(), analyzedUrls: new Set() };
+        tabDetections.set(tabId, entry);
+      }
+      entry.analyzedUrls.add(details.url);
+      
+      // Notify sidepanel about new analyzed URL if panel is ready
+      if (readyPanels.has(tabId)) {
+        chrome.runtime.sendMessage({ 
+          action: 'updateAnalyzedUrls', 
+          tabId, 
+          analyzedUrls: Array.from(entry.analyzedUrls) 
+        }, (res) => { });
+      }
+    }
+    
     await detectTechnologiesFromHeaders(tabId, details.responseHeaders);
   }
 }
@@ -153,42 +220,10 @@ chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch((err) 
   console.warn('setPanelBehavior failed', err);
 });
 
-chrome.action.onClicked.addListener((tab) => {
-  // Don't disable previous tab-specific panels here; allow per-tab panels to
-  // remain enabled so they reappear when the user switches back.
-
-  // Start enabling the side panel for this tab (async). We intentionally do
-  // not await this so that the following open() call executes inside the
-  // user gesture.
-  chrome.sidePanel.setOptions({ tabId: tab.id, path: 'sidepanel.html', enabled: true })
-    .catch((e) => console.warn('Failed to set side panel options for tab', tab.id, e));
-
-  // Open the side panel immediately in the user gesture context. Do not
-  // await this call, but handle the promise to log errors.
-  chrome.sidePanel.open({ tabId: tab.id })
-    .then(() => {
-      // ensure an entry exists for this tab and store the visible URL
-      let entry = tabDetections.get(tab.id);
-      if (!entry) {
-        entry = { url: tab.url || null, technologies: [], headerTechs: new Map() };
-        tabDetections.set(tab.id, entry);
-      } else {
-        entry.url = tab.url || entry.url || null;
-      }
-      console.log('Side panel enabled and opened for tab', tab.id);
-    })
-    .catch((err) => {
-      console.debug('Failed to open side panel for tab', tab.id, err);
-    });
-});
-
-// When the user switches tabs, disable the panel for the previously-open tab so
-// the side panel remains enabled only on the tab it was opened on.
+// When the user switches tabs, update the action button state.
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
-  // Intentionally do not disable the previous tab's side panel here.
-  // Leaving `panelOpenTabId` set lets Chrome automatically show the
-  // tab-specific side panel again when the user switches back to that tab.
   const { tabId } = activeInfo;
+  updateActionAndSidePanel(tabId);
   console.log('Tab activated', tabId, 'panel ready for tab?', readyPanels.has(tabId));
 });
 
@@ -211,6 +246,10 @@ chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
 
 chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   console.log('chrome.tabs.onUpdated.addListener called', { tabId, info, tab });
+  
+  // Update the action button state whenever the tab is updated.
+  updateActionAndSidePanel(tabId);
+
   const panelReady = readyPanels.has(tabId);
   // Clear stored detections when navigation starts so we don't show stale headers
   if (info.status === 'loading') {
@@ -221,6 +260,8 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
     let entry = tabDetections.get(tabId);
     if (entry) {
       entry.technologies = [];
+      // Always clear analyzed URLs on navigation start, not just origin changes
+      entry.analyzedUrls = new Set();
     }
     const newVisibleUrl = (tab && tab.url) ? tab.url : (info.url || null);
     if (panelReady && entry && entry.url && newVisibleUrl) {
@@ -229,9 +270,11 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
         const next = new URL(newVisibleUrl);
         if (prev.origin !== next.origin) {
           entry.headerTechs = new Map();
+          entry.analyzedUrls = new Set();
           const headerTechs = [];
           // Outer guard `panelReady` ensures readiness; send update directly
           chrome.runtime.sendMessage({ action: 'updateHeaderTechs', tabId, headerTechs }, (res) => { });
+          chrome.runtime.sendMessage({ action: 'updateAnalyzedUrls', tabId, analyzedUrls: [] }, (res) => { });
         }
       } catch (e) {
         console.debug('URL parse failed while comparing origins', e);
@@ -253,7 +296,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   // If the tab with the side panel navigates, update the cached visible URL
   if (tab && tab.url) {
     let entry = tabDetections.get(tabId);
-    if (!entry) entry = { url: tab.url, technologies: [], headerTechs: new Map() };
+    if (!entry) entry = { url: tab.url, technologies: [], headerTechs: new Map(), analyzedUrls: new Set() };
     entry.url = tab.url;
     tabDetections.set(tabId, entry);
   }
@@ -269,9 +312,11 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
           const next = new URL(tab.url);
           if (prev.origin !== next.origin) {
             entry.headerTechs = new Map();
+            entry.analyzedUrls = new Set();
             const headerTechs = [];
             if (panelReady) {
               chrome.runtime.sendMessage({ action: 'updateHeaderTechs', tabId, headerTechs }, () => { });
+              chrome.runtime.sendMessage({ action: 'updateAnalyzedUrls', tabId, analyzedUrls: [] }, () => { });
             }
           }
         } catch (e) {
@@ -306,13 +351,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const entry = tabDetections.get(tabId);
       const payload = entry ? { 
         technologies: entry.technologies || [], 
-        headerTechs: Array.from(entry.headerTechs.values())
+        headerTechs: Array.from(entry.headerTechs.values()),
+        analyzedUrls: Array.from(entry.analyzedUrls || new Set())
       } : { 
         technologies: [], 
-        headerTechs: [] 
+        headerTechs: [],
+        analyzedUrls: []
       };
       chrome.runtime.sendMessage({ action: 'updateTechList', tabId, technologies: payload.technologies }, () => { });
       chrome.runtime.sendMessage({ action: 'updateHeaderTechs', tabId, headerTechs: payload.headerTechs }, () => { });
+      chrome.runtime.sendMessage({ action: 'updateAnalyzedUrls', tabId, analyzedUrls: payload.analyzedUrls }, () => { });
     }
     return; // handled
   }
@@ -335,10 +383,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (tabId) {
       let entry = tabDetections.get(tabId);
       if (!entry) {
-        entry = { technologies: [], headerTechs: new Map() };
+        entry = { technologies: [], headerTechs: new Map(), analyzedUrls: new Set() };
         tabDetections.set(tabId, entry);
       }
       entry.technologies = Array.isArray(message.technologies) ? message.technologies : [];
+      
+      // Add current tab URL to analyzed URLs when content script detections are received
+      if (sender && sender.tab && sender.tab.url && entry.technologies.length > 0) {
+        entry.analyzedUrls.add(sender.tab.url);
+        // Notify sidepanel about the analyzed URL if panel is ready
+        if (readyPanels.has(tabId)) {
+          chrome.runtime.sendMessage({ 
+            action: 'updateAnalyzedUrls', 
+            tabId, 
+            analyzedUrls: Array.from(entry.analyzedUrls) 
+          }, (res) => { });
+        }
+      }
+      
       // Forward to side panel UI only if a panel instance is ready for this tab
       if (readyPanels.has(tabId)) {
         chrome.runtime.sendMessage({ action: 'updateTechList', tabId, technologies: entry.technologies }, () => { });
@@ -353,7 +415,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const tabId = tabs[0].id;
         const entry = tabDetections.get(tabId);
         if (entry) {
-          sendResponse({ entry: { technologies: entry.technologies || [], headerTechs: Array.from(entry.headerTechs.values()) } });
+          sendResponse({ entry: { 
+            technologies: entry.technologies || [], 
+            headerTechs: Array.from(entry.headerTechs.values()),
+            analyzedUrls: Array.from(entry.analyzedUrls || new Set())
+          } });
         } else {
           sendResponse({ entry: null });
         }
@@ -373,11 +439,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           { action: 'getDetectedTechs' },
           (response) => {
             console.log('chrome.tabs.sendMessage callback called', { tabId, response });
-            const entry = tabDetections.get(tabId) || { technologies: [], headerTechs: new Map() };
+            const entry = tabDetections.get(tabId) || { technologies: [], headerTechs: new Map(), analyzedUrls: new Set() };
             const merged = {
               ...(response || {}),
               technologies: (response && response.technologies) ? response.technologies : entry.technologies || [],
-              headerTechs: Array.from(entry.headerTechs.values())
+              headerTechs: Array.from(entry.headerTechs.values()),
+              analyzedUrls: Array.from(entry.analyzedUrls || new Set())
             };
             if (chrome.runtime.lastError) {
               // Content script may not be available on all pages; this is expected
@@ -385,7 +452,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               // debug level to avoid noisy errors in the Extensions page.
               console.debug('tabs.sendMessage failed (content script may be missing)', chrome.runtime.lastError);
               // still send header info even if content script failed
-              sendResponse({ headerTechs: merged.headerTechs, error: chrome.runtime.lastError.message || chrome.runtime.lastError });
+              sendResponse({ 
+                headerTechs: merged.headerTechs, 
+                analyzedUrls: merged.analyzedUrls,
+                error: chrome.runtime.lastError.message || chrome.runtime.lastError 
+              });
             } else {
               sendResponse(merged);
             }

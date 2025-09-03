@@ -16,6 +16,27 @@
   </header>
   
   <main class="flex-1 overflow-y-auto m-1 p-1">
+    <!-- Target URL section -->
+    <div id="target-url-section" class="mb-3">
+      <h3 class="text-sm font-semibold text-base-content/80 mb-2">Target URL</h3>
+      <div id="target-url" class="bg-base-200 rounded p-2 text-xs text-base-content/70 truncate" title="">
+        <!-- Current tab URL will be shown here -->
+      </div>
+    </div>
+
+    <!-- Reload suggestion message -->
+    <div id="reload-suggestion" class="mb-3 p-2 bg-warning/20 border border-warning/40 rounded text-xs text-warning-content/80" style="display: none;">
+      💡 For complete analysis including HTTP headers, consider reloading the page after opening this extension.
+    </div>
+    
+    <!-- Analyzed URLs section -->
+    <div id="analyzed-urls-section" class="mb-3" style="display: none;">
+      <h3 class="text-sm font-semibold text-base-content/80 mb-2">Analyzed URLs</h3>
+      <div id="analyzed-urls-list" class="bg-base-200 rounded p-2 max-h-32 overflow-y-auto space-y-1">
+        <!-- Analyzed URLs will be listed here -->
+      </div>
+    </div>
+    
     <!-- All detected technologies displayed here -->
     <div id="tech-list">
       <!-- Detected technologies will be listed here -->

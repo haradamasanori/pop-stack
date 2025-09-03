@@ -5,7 +5,10 @@ const dumpArea = document.getElementById('dump-area');
 // Maintain current state so we can render a merged view
 let currentTechs = [];
 let currentHeaderTechs = [];
+let currentAnalyzedUrls = [];
 let currentTabId = null;
+let currentTabUrl = null;
+let hasContentScriptResponded = false;
 
 function createTechCard(tech) {
   const isRichObject = typeof tech === 'object' && tech.name;
@@ -81,7 +84,47 @@ function createTechCard(tech) {
   return card;
 }
 
+function renderTargetUrl() {
+  const targetUrlElement = document.getElementById('target-url');
+  if (currentTabUrl && targetUrlElement) {
+    targetUrlElement.textContent = currentTabUrl;
+    targetUrlElement.title = currentTabUrl;
+  }
+}
+
+function showReloadSuggestion() {
+  const reloadSuggestion = document.getElementById('reload-suggestion');
+  if (reloadSuggestion) {
+    reloadSuggestion.style.display = 'block';
+  }
+}
+
+function hideReloadSuggestion() {
+  const reloadSuggestion = document.getElementById('reload-suggestion');
+  if (reloadSuggestion) {
+    reloadSuggestion.style.display = 'none';
+  }
+}
+
+function renderAnalyzedUrls() {
+  const urlsList = document.getElementById('analyzed-urls-list');
+  if (!urlsList) return;
+
+  if (currentAnalyzedUrls.length > 0) {
+    urlsList.innerHTML = currentAnalyzedUrls
+      .map(url => `<div class="text-xs text-base-content/70 truncate" title="${url}">${url}</div>`)
+      .join('');
+    document.getElementById('analyzed-urls-section').style.display = 'block';
+  } else {
+    document.getElementById('analyzed-urls-section').style.display = 'none';
+  }
+}
+
 function renderCombinedList() {
+  // Render target URL and analyzed URLs first
+  renderTargetUrl();
+  renderAnalyzedUrls();
+  
   // Build a unified list of all detected technologies
   techList.innerHTML = '';
   const added = new Set();
@@ -104,7 +147,7 @@ function renderCombinedList() {
   } else {
     const emptyState = document.createElement('div');
     emptyState.className = 'text-center text-base-content/60 py-8';
-    emptyState.innerHTML = '<p>No technologies detected.</p><p class="text-xs mt-1">Try visiting a different website.</p>';
+    emptyState.innerHTML = '<p>No technologies detected.</p>';
     techList.appendChild(emptyState);
   }
 }
@@ -121,6 +164,15 @@ function updateTechList(technologies) {
     seen.add(key);
     return true;
   });
+  
+  // Mark that content script has responded
+  hasContentScriptResponded = true;
+  
+  // Only hide reload suggestion if technologies were actually detected
+  if (currentTechs.length > 0) {
+    hideReloadSuggestion();
+  }
+  
   renderCombinedList();
 }
 
@@ -133,6 +185,18 @@ function updateHeaderTechs(headerTechs) {
   renderCombinedList();
 
   // Auto-refresh dump area when header techs update
+  if (dumpArea.textContent !== '') requestDump();
+}
+
+function updateAnalyzedUrls(analyzedUrls) {
+  console.log('updateAnalyzedUrls called', { analyzedUrls });
+  // Update analyzed URLs
+  currentAnalyzedUrls = Array.isArray(analyzedUrls) ? analyzedUrls : [];
+
+  // Re-render to update URL display
+  renderAnalyzedUrls();
+
+  // Auto-refresh dump area when analyzed URLs update
   if (dumpArea.textContent !== '') requestDump();
 }
 
@@ -156,8 +220,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     updateTechList(message.technologies);
   } else if (message.action === 'updateHeaderTechs') {
     updateHeaderTechs(message.headerTechs || []);
+  } else if (message.action === 'updateAnalyzedUrls') {
+    updateAnalyzedUrls(message.analyzedUrls || []);
   } else if (message.action === 'clearTechs') {
     techList.innerHTML = '';
+    currentAnalyzedUrls = [];
+    hasContentScriptResponded = false;
+    
+    // Update target URL when navigation occurs
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs.length > 0 && tabs[0].id === currentTabId) {
+        currentTabUrl = tabs[0].url;
+        renderTargetUrl();
+      }
+    });
+    
+    renderAnalyzedUrls();
+    showReloadSuggestion();
     requestDump();
   }
 });
@@ -183,7 +262,16 @@ requestDump();
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   console.log('chrome.tabs.query called', { tabs });
   const tabId = tabs[0].id;
+  const tabUrl = tabs[0].url;
   currentTabId = tabId; // Store current tab ID for message filtering
+  currentTabUrl = tabUrl; // Store current tab URL
+  
+  // Show target URL immediately
+  renderTargetUrl();
+  
+  // Show reload suggestion initially (will be hidden if content script responds)
+  showReloadSuggestion();
+  
   // Notify background that the panel is ready to receive updates for this tab
   chrome.runtime.sendMessage({ action: 'panelReady', tabId }, (res) => {
     // ignore response; background will send current state after registering readiness
@@ -196,6 +284,18 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       // Populate current state from response and render merged UI
       currentTechs = response.technologies || [];
       currentHeaderTechs = response.headerTechs || [];
+      currentAnalyzedUrls = response.analyzedUrls || [];
+      
+      // If we have technologies, hide the reload suggestion
+      if (currentTechs.length > 0) {
+        hasContentScriptResponded = true;
+        hideReloadSuggestion();
+      } else if (currentAnalyzedUrls.length > 0) {
+        // If we have analyzed URLs but no technologies, content script likely responded
+        // but found nothing - keep suggestion visible to suggest reloading for full analysis
+        hasContentScriptResponded = true;
+      }
+      
       renderCombinedList();
     }
   });
@@ -206,6 +306,13 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   } catch (e) {
     // ignore
   }
+
+  // Show reload suggestion after a delay if no technologies were detected
+  setTimeout(() => {
+    if (currentTechs.length === 0 && currentHeaderTechs.length === 0) {
+      showReloadSuggestion();
+    }
+  }, 2000); // Wait 2 seconds for content script response
 
   // Inform background when the panel is unloaded/closed so it can stop
   // assuming the panel is listening for this tab.
