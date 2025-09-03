@@ -99,26 +99,30 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders) {
   // Iterate through all configured technologies that have compiled header patterns
   Object.entries(techConfig).forEach(([key, config]) => {
     const { name, compiledHeaderPatterns = [] } = config;
+    const matchedTexts = [];
     
     // Check compiled header patterns against each header line
     for (const { pattern, regex } of compiledHeaderPatterns) {
-      // Test pattern against each header line
-      const matchedHeader = headerStrings.find(headerLine => regex.test(headerLine));
-      if (matchedHeader) {
-        entry.headerTechs.set(key, {
-          key,
-          name,
-          description: config.description || '',
-          link: config.link || '',
-          tags: config.tags || [],
-          developer: config.developer || '',
-          detectionMethod: 'HTTP Headers',
-          pattern,
-          matchedHeader // Include which header matched for debugging
-        });
-        console.log(`Background: Detected ${name} via header pattern: ${pattern} (matched: ${matchedHeader})`);
-        break; // Only add once per technology
+      // Test pattern against all header lines and collect matches
+      const matchedHeaders = headerStrings.filter(headerLine => regex.test(headerLine));
+      if (matchedHeaders.length > 0) {
+        matchedTexts.push(...matchedHeaders);
       }
+    }
+    
+    // If we found any matches, add the technology with all matched headers
+    if (matchedTexts.length > 0) {
+      entry.headerTechs.set(key, {
+        key,
+        name,
+        description: config.description || '',
+        link: config.link || '',
+        tags: config.tags || [],
+        developer: config.developer || '',
+        detectionMethod: 'HTTP Headers',
+        matchedTexts: [...new Set(matchedTexts)] // Remove duplicates
+      });
+      console.log(`Background: Detected ${name} via header patterns (matched: ${matchedTexts.join(', ')})`);
     }
   });
   

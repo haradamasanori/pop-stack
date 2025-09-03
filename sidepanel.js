@@ -17,6 +17,7 @@ function createTechCard(tech) {
   const link = isRichObject ? tech.link : '';
   const tags = isRichObject ? tech.tags : [];
   const developer = isRichObject ? tech.developer : '';
+  const matchedTexts = isRichObject ? tech.matchedTexts : [];
 
   // Clone the template
   const template = document.getElementById('tech-card-template');
@@ -25,6 +26,8 @@ function createTechCard(tech) {
   // Get elements
   const titleElement = card.querySelector('[data-title]');
   const descElement = card.querySelector('[data-description]');
+  const matchedTextsElement = card.querySelector('[data-matched-texts]');
+  const matchedTextsListElement = card.querySelector('[data-matched-texts-list]');
   const tagsElement = card.querySelector('[data-tags]');
 
   // Set title with optional link and developer info in a single inline span
@@ -70,6 +73,18 @@ function createTechCard(tech) {
       isExpanded = !isExpanded;
       updateDescription();
     });
+  }
+
+  // Set matched texts if available
+  if (matchedTexts && matchedTexts.length > 0) {
+    matchedTextsElement.style.display = 'block';
+    matchedTextsListElement.innerHTML = matchedTexts
+      .map(text => {
+        // Escape HTML to prevent XSS
+        const escapedText = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return `<div class="text-[10px] text-base-content/60 bg-base-300 px-2 py-1 rounded font-mono break-all">${escapedText}</div>`;
+      })
+      .join('');
   }
 
   // Set tags if available

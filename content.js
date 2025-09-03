@@ -49,27 +49,51 @@ function detectTechnologies() {
   Object.entries(techConfig).forEach(([key, config]) => {
     const { name, html: htmlPatterns = [], description, link, tags, developer } = config;
     
-    // Check HTML patterns using regex
+    // Check HTML patterns using regex and collect matched text
+    const matchedTexts = [];
     for (const pattern of htmlPatterns) {
       try {
-        const regex = new RegExp(pattern, 'i');
-        if (regex.test(html)) {
-          detected.push({
-            key,
-            name,
-            description: description || '',
-            link: link || '',
-            tags: tags || [],
-            developer: developer || '',
-            detectionMethod: 'HTML',
-            pattern
-          });
-          console.log(`Detected ${name} via HTML pattern: ${pattern}`);
-          break; // Only add once per technology
+        const regex = new RegExp(pattern, 'gi'); // Use global flag to find all matches
+        let match;
+        while ((match = regex.exec(html)) !== null) {
+          // Extract a reasonable snippet around the match (max 200 chars)
+          const matchStart = Math.max(0, match.index - 50);
+          const matchEnd = Math.min(html.length, match.index + match[0].length + 50);
+          let snippet = html.substring(matchStart, matchEnd).trim();
+          
+          // Clean up the snippet - remove excessive whitespace and newlines
+          snippet = snippet.replace(/\s+/g, ' ').replace(/[<>]/g, '');
+          
+          // Truncate if still too long
+          if (snippet.length > 150) {
+            snippet = snippet.substring(0, 147) + '...';
+          }
+          
+          if (snippet) {
+            matchedTexts.push(snippet);
+          }
+          
+          // Avoid infinite loop with zero-width matches
+          if (match[0].length === 0) break;
         }
       } catch (error) {
         console.warn(`Invalid regex pattern for ${name}:`, pattern, error);
       }
+    }
+    
+    // If we found matches, add the technology with matched text
+    if (matchedTexts.length > 0) {
+      detected.push({
+        key,
+        name,
+        description: description || '',
+        link: link || '',
+        tags: tags || [],
+        developer: developer || '',
+        detectionMethod: 'HTML',
+        matchedTexts: [...new Set(matchedTexts)].slice(0, 5) // Remove duplicates, limit to 5
+      });
+      console.log(`Detected ${name} via HTML patterns (matched: ${matchedTexts.length} snippets)`);
     }
   });
 
