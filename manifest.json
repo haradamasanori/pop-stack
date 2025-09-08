@@ -28,7 +28,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["config.json"],
+      "resources": ["config.json", "config/*.json"],
       "matches": ["https://*/*", "http://*/*"]
     }
   ]

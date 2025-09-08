@@ -1,0 +1,36 @@
+{
+  "provider": "Microsoft Azure",
+  "name": "Azure",
+  "description": "Microsoft Azure cloud platform",
+  "link": "https://azure.microsoft.com/",
+  "tags": ["cloud", "infrastructure", "hosting", "microsoft"],
+  "developer": "Microsoft",
+  "values": [
+    {
+      "name": "AzureCloud.eastus",
+      "properties": {
+        "changeNumber": 1,
+        "region": "eastus",
+        "addressPrefixes": [
+          "13.64.0.0/11",
+          "13.104.0.0/14",
+          "20.1.128.0/17",
+          "40.64.0.0/10",
+          "52.168.0.0/13"
+        ]
+      }
+    },
+    {
+      "name": "AzureCloud.westus", 
+      "properties": {
+        "changeNumber": 1,
+        "region": "westus",
+        "addressPrefixes": [
+          "13.64.0.0/11",
+          "40.112.0.0/13",
+          "104.40.0.0/13"
+        ]
+      }
+    }
+  ]
+}

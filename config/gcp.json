@@ -1,0 +1,40 @@
+{
+  "provider": "Google Cloud Platform", 
+  "name": "Google Cloud",
+  "description": "Google Cloud Platform services",
+  "link": "https://cloud.google.com/",
+  "tags": ["cloud", "infrastructure", "hosting", "google"],
+  "developer": "Google",
+  "prefixes": [
+    {
+      "ipv4Prefix": "8.34.208.0/20",
+      "service": "Google Cloud",
+      "scope": "us-central1"
+    },
+    {
+      "ipv4Prefix": "8.35.192.0/20", 
+      "service": "Google Cloud",
+      "scope": "us-central1"
+    },
+    {
+      "ipv4Prefix": "23.236.48.0/20",
+      "service": "Google Cloud", 
+      "scope": "us-central1"
+    },
+    {
+      "ipv4Prefix": "23.251.128.0/19",
+      "service": "Google Cloud",
+      "scope": "us-central1"
+    },
+    {
+      "ipv4Prefix": "34.64.0.0/10",
+      "service": "Google Cloud",
+      "scope": "global"
+    },
+    {
+      "ipv4Prefix": "35.184.0.0/13", 
+      "service": "Google Cloud",
+      "scope": "us-central1"
+    }
+  ]
+}

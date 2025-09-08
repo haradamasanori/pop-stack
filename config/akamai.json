@@ -1,0 +1,24 @@
+{
+  "provider": "Akamai",
+  "name": "Akamai",
+  "description": "Akamai content delivery network and edge services",
+  "link": "https://www.akamai.com/",
+  "tags": ["cdn", "edge-computing", "security", "performance"],
+  "developer": "Akamai Technologies",
+  "ranges": [
+    "2.16.0.0/13",
+    "2.18.0.0/15", 
+    "2.20.0.0/14",
+    "23.32.0.0/11",
+    "23.64.0.0/14",
+    "23.72.0.0/13",
+    "69.192.0.0/10",
+    "72.246.0.0/15",
+    "88.221.0.0/16",
+    "96.6.0.0/15",
+    "104.64.0.0/10",
+    "184.24.0.0/13",
+    "184.50.0.0/15",
+    "184.84.0.0/14"
+  ]
+}
