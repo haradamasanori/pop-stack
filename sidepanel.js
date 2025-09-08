@@ -157,6 +157,15 @@ function renderCombinedList() {
 
 function updateTechList(technologies) {
   console.log('🔧 updateTechList called', { technologies, count: Array.isArray(technologies) ? technologies.length : 0 });
+  
+  // Debug each technology's matchedTexts
+  if (Array.isArray(technologies)) {
+    technologies.forEach((tech, index) => {
+      if (typeof tech === 'object') {
+        console.log(`🎯 Tech ${index}: ${tech.name} (${tech.detectionMethod}) - matchedTexts: [${tech.matchedTexts?.join(', ') || 'none'}]`);
+      }
+    });
+  }
   // Handle both old string format and new rich object format
   currentTechs = Array.isArray(technologies) ? technologies : [];
   // Deduplicate based on name property for rich objects, or string value

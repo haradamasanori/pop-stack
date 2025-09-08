@@ -126,6 +126,11 @@ function processIpRangesForProvider(provider, config) {
           ranges.push(prefix.ip_prefix);
         });
       }
+      if (config.ipv6_prefixes) {
+        config.ipv6_prefixes.forEach(prefix => {
+          ranges.push(prefix.ipv6_prefix);
+        });
+      }
       break;
       
     case 'azure':
@@ -141,6 +146,9 @@ function processIpRangesForProvider(provider, config) {
     case 'cloudflare':
       if (config.result && config.result.ipv4_cidrs) {
         ranges.push(...config.result.ipv4_cidrs);
+      }
+      if (config.result && config.result.ipv6_cidrs) {
+        ranges.push(...config.result.ipv6_cidrs);
       }
       break;
       
@@ -176,21 +184,77 @@ function isIpInCidr(ip, cidr) {
     const [network, prefixLength] = cidr.split('/');
     const prefix = parseInt(prefixLength, 10);
     
-    // Convert IP addresses to 32-bit integers
-    const ipToInt = (ipStr) => {
-      return ipStr.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0) >>> 0;
-    };
+    // Check if it's IPv4 or IPv6
+    const isIpv4 = ip.includes('.') && !ip.includes(':');
+    const isNetworkIpv4 = network.includes('.') && !network.includes(':');
     
-    const ipInt = ipToInt(ip);
-    const networkInt = ipToInt(network);
+    // Both must be the same type
+    if (isIpv4 !== isNetworkIpv4) {
+      return false;
+    }
     
-    // Create subnet mask
-    const mask = (0xFFFFFFFF << (32 - prefix)) >>> 0;
-    
-    // Check if IP is in the network
-    return (ipInt & mask) === (networkInt & mask);
+    if (isIpv4) {
+      // IPv4 CIDR matching
+      const ipToInt = (ipStr) => {
+        return ipStr.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0) >>> 0;
+      };
+      
+      const ipInt = ipToInt(ip);
+      const networkInt = ipToInt(network);
+      const mask = (0xFFFFFFFF << (32 - prefix)) >>> 0;
+      
+      return (ipInt & mask) === (networkInt & mask);
+    } else {
+      // IPv6 CIDR matching
+      const ipv6ToBytes = (ipStr) => {
+        // Expand compressed IPv6 notation
+        let expanded = ipStr;
+        if (expanded.includes('::')) {
+          const parts = expanded.split('::');
+          const leftParts = parts[0] ? parts[0].split(':') : [];
+          const rightParts = parts[1] ? parts[1].split(':') : [];
+          const missingParts = 8 - leftParts.length - rightParts.length;
+          const middleParts = new Array(missingParts).fill('0');
+          expanded = [...leftParts, ...middleParts, ...rightParts].join(':');
+        }
+        
+        // Convert to bytes
+        const bytes = new Uint8Array(16);
+        const groups = expanded.split(':');
+        for (let i = 0; i < 8; i++) {
+          const group = parseInt(groups[i] || '0', 16);
+          bytes[i * 2] = (group >> 8) & 0xFF;
+          bytes[i * 2 + 1] = group & 0xFF;
+        }
+        return bytes;
+      };
+      
+      const ipBytes = ipv6ToBytes(ip);
+      const networkBytes = ipv6ToBytes(network);
+      
+      // Create mask for the prefix length
+      const prefixBytes = Math.floor(prefix / 8);
+      const prefixBits = prefix % 8;
+      
+      // Check full bytes
+      for (let i = 0; i < prefixBytes; i++) {
+        if (ipBytes[i] !== networkBytes[i]) {
+          return false;
+        }
+      }
+      
+      // Check partial byte if needed
+      if (prefixBits > 0 && prefixBytes < 16) {
+        const mask = (0xFF << (8 - prefixBits)) & 0xFF;
+        if ((ipBytes[prefixBytes] & mask) !== (networkBytes[prefixBytes] & mask)) {
+          return false;
+        }
+      }
+      
+      return true;
+    }
   } catch (error) {
-    console.warn('Error checking IP range:', error);
+    console.warn('Error checking IP range:', ip, 'in', cidr, error);
     return false;
   }
 }
@@ -241,6 +305,10 @@ async function detectTechnologiesFromIP(tabId, url, hostname, ipAddress) {
       }
     }
     
+    if (!isDetected) {
+      console.log(`❌ IP ${ipAddress} (${ipAddress.includes(':') ? 'IPv6' : 'IPv4'}) does not match any ${provider} ranges`);
+    }
+    
     if (isDetected) {
       const detectedTech = {
         key: provider,
@@ -252,6 +320,9 @@ async function detectTechnologiesFromIP(tabId, url, hostname, ipAddress) {
         detectionMethod: 'IP Address',
         matchedTexts: [`${hostname} ${ipAddress}`]
       };
+      
+      console.log(`🔑 IP detection key for ${config.name}: "${provider}"`);
+      console.log(`📄 IP detection matched texts: [${detectedTech.matchedTexts.join(', ')}]`);
       
       urlDetection.ipComponents.push(detectedTech);
       detectedTechKeys.add(provider);
@@ -284,17 +355,58 @@ function getAllTechnologiesForTab(tabId) {
   
   const allTechs = [];
   const analyzedUrls = Array.from(entry.detectionsByUrl.keys());
-  const seenTechKeys = new Set();
+  const techMap = new Map(); // Use Map to track and merge duplicate technologies
   
-  // Combine all technologies from all URLs, avoiding duplicates
+  // Combine all technologies from all URLs, merging matchedText for duplicates
   for (const [url, detection] of entry.detectionsByUrl) {
+    console.log(`🔍 Processing detections for URL: ${url}`, {
+      headerComponents: detection.headerComponents.length,
+      htmlComponents: detection.htmlComponents.length, 
+      ipComponents: (detection.ipComponents || []).length
+    });
+    
     [...detection.headerComponents, ...detection.htmlComponents, ...(detection.ipComponents || [])].forEach(tech => {
-      if (!seenTechKeys.has(tech.key)) {
-        allTechs.push(tech);
-        seenTechKeys.add(tech.key);
+      console.log(`🔧 Processing tech: ${tech.name} (key: ${tech.key}, method: ${tech.detectionMethod})`);
+      
+      if (!techMap.has(tech.key)) {
+        // First occurrence - add as is
+        console.log(`✨ First occurrence of ${tech.name}, adding with ${tech.matchedTexts?.length || 0} matched texts`);
+        techMap.set(tech.key, { ...tech });
+      } else {
+        // Duplicate found - merge matchedText
+        console.log(`🔄 Duplicate ${tech.name} found, merging matched texts`);
+        const existing = techMap.get(tech.key);
+        const existingTexts = existing.matchedTexts || [];
+        const newTexts = tech.matchedTexts || [];
+        
+        console.log(`📝 Merging texts - existing: ${existingTexts.length}, new: ${newTexts.length}`);
+        
+        // Combine and deduplicate matchedTexts
+        const combinedTexts = [...existingTexts, ...newTexts];
+        existing.matchedTexts = [...new Set(combinedTexts)].slice(0, 10); // Dedupe and limit to 10
+        
+        console.log(`📋 After merge: ${existing.matchedTexts.length} total texts`);
+        
+        // Also update detection method to show it was detected by multiple methods
+        const methods = new Set();
+        if (existing.detectionMethod) methods.add(existing.detectionMethod);
+        if (tech.detectionMethod) methods.add(tech.detectionMethod);
+        
+        if (methods.size > 1) {
+          const newMethod = Array.from(methods).join(' + ');
+          console.log(`🔀 Updated detection method: ${existing.detectionMethod} → ${newMethod}`);
+          existing.detectionMethod = newMethod;
+        }
       }
     });
   }
+  
+  // Convert Map values to array
+  allTechs.push(...Array.from(techMap.values()));
+  
+  console.log(`🎯 Final technologies for tab ${tabId}:`, allTechs.map(tech => 
+    `${tech.name} (${tech.detectionMethod}) - ${tech.matchedTexts?.length || 0} texts: [${tech.matchedTexts?.slice(0, 3).join(', ')}${tech.matchedTexts?.length > 3 ? '...' : ''}]`
+  ));
   
   return { allTechs, analyzedUrls };
 }
@@ -355,6 +467,10 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
         detectionMethod: 'HTTP Headers',
         matchedTexts: [...new Set(matchedTexts)] // Remove duplicates
       };
+      
+      console.log(`🔑 HTTP detection key for ${name}: "${key}"`);
+      console.log(`📄 HTTP detection matched texts: [${detectedTech.matchedTexts.join(', ')}]`);
+      
       urlDetection.headerComponents.push(detectedTech);
       detectedTechKeys.add(key);
       console.log(`Background: Detected ${name} via header patterns for ${url} (matched: ${matchedTexts.join(', ')})`);
