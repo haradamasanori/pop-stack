@@ -39,15 +39,15 @@ function shouldAnalyzePage() {
 }
 
 function detectTechnologies() {
-  console.log('detectTechnologies called');
+  console.log('🔍 detectTechnologies called');
   const detected = [];
 
   if (!techConfig) {
-    console.warn('Configuration not loaded, cannot detect technologies');
+    console.warn('⚠️ Configuration not loaded, cannot detect technologies');
     return detected;
   }
 
-  console.log('Processing', Object.keys(techConfig).length, 'technologies');
+  console.log('🔧 Processing', Object.keys(techConfig).length, 'technologies');
 
   // Iterate through all configured technologies
   Object.entries(techConfig).forEach(([key, config]) => {
@@ -261,26 +261,26 @@ function mergeDetectionResults(initial, idle) {
 }
 
 async function analyzeContent() {
-  console.log('analyzeContent called');
+  console.log('🔍 analyzeContent called');
   
   // Skip analysis for non-HTML pages
   if (!shouldAnalyzePage()) {
-    console.log('Skipping analysis - not an HTML page');
+    console.log('⏭️ Skipping analysis - not an HTML page');
     chrome.runtime.sendMessage({ action: 'detectedTechs', technologies: [] });
     return;
   }
   
-  console.log('Proceeding with analysis - HTML page detected');
+  console.log('✅ Proceeding with analysis - HTML page detected');
   
   // Load config on-demand only for HTML pages that need analysis
   if (!techConfig) {
-    console.log('Loading configuration...');
+    console.log('📁 Loading configuration...');
     await loadConfig();
   }
   
-  console.log('About to call detectTechnologies()');
+  console.log('🔧 About to call detectTechnologies(), config keys:', techConfig ? Object.keys(techConfig).length : 'NO CONFIG');
   const technologies = detectTechnologies();
-  console.log('detectTechnologies() returned:', technologies);
+  console.log('🔍 detectTechnologies() returned:', technologies, 'count:', technologies.length);
   // Store detected technologies for the current tab
   chrome.runtime.sendMessage({ action: 'getTabId' }, (response) => {
     const tabId = response && response.tabId ? response.tabId : null;
@@ -299,35 +299,12 @@ async function analyzeContent() {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('Content script received message:', message);
+  console.log('📨 Content script received message:', message);
   if (message.action === 'analyze') {
-    console.log('Received analyze message, calling analyzeContent()');
+    console.log('🚀 Received analyze message, calling analyzeContent()');
     analyzeContent();
-  } else if (message.action === 'getDetectedTechs') {
-    console.log('Received getDetectedTechs message for tabId:', message.tabId);
-    const tabId = message.tabId;
-    if (detectedTechsByTab[tabId]) {
-      sendResponse({ technologies: detectedTechsByTab[tabId] });
-    } else {
-      // If not detected yet, run the analysis and respond after detection
-      if (!shouldAnalyzePage()) {
-        sendResponse({ technologies: [] });
-        return;
-      }
-      // Load config on-demand only for HTML pages that need analysis
-      (async () => {
-        if (!techConfig) {
-          await loadConfig();
-        }
-        const technologies = detectTechnologies();
-        detectedTechsByTab[tabId] = technologies;
-        sendResponse({ technologies });
-        
-        // Schedule idle detection for lazy-loaded elements
-        scheduleIdleDetection(tabId);
-      })();
-    }
-    return true; // Indicates that the response is sent asynchronously
+  } else {
+    console.log('❓ Unknown message action:', message.action);
   }
 });
 

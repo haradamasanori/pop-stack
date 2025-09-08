@@ -4,7 +4,6 @@ const dumpArea = document.getElementById('dump-area');
 
 // Maintain current state so we can render a merged view
 let currentTechs = [];
-let currentHeaderTechs = [];
 let currentAnalyzedUrls = [];
 let currentTabId = null;
 let currentTabUrl = null;
@@ -142,20 +141,9 @@ function renderCombinedList() {
   
   // Build a unified list of all detected technologies
   techList.innerHTML = '';
-  const added = new Set();
-  const allTechs = [];
 
-  // Combine HTML and Header detected technologies
-  [...currentTechs, ...currentHeaderTechs].forEach(tech => {
-    const techName = typeof tech === 'object' ? tech.name : tech;
-    if (!added.has(techName)) {
-      allTechs.push(tech);
-      added.add(techName);
-    }
-  });
-
-  if (allTechs.length > 0) {
-    allTechs.forEach(tech => {
+  if (currentTechs.length > 0) {
+    currentTechs.forEach(tech => {
       const card = createTechCard(tech);
       techList.appendChild(card);
     });
@@ -168,7 +156,7 @@ function renderCombinedList() {
 }
 
 function updateTechList(technologies) {
-  console.log('updateTechList called', { technologies });
+  console.log('🔧 updateTechList called', { technologies, count: Array.isArray(technologies) ? technologies.length : 0 });
   // Handle both old string format and new rich object format
   currentTechs = Array.isArray(technologies) ? technologies : [];
   // Deduplicate based on name property for rich objects, or string value
@@ -179,6 +167,8 @@ function updateTechList(technologies) {
     seen.add(key);
     return true;
   });
+  
+  console.log('🔧 updateTechList processed', { finalCount: currentTechs.length, techNames: currentTechs.map(t => t.name || t) });
   
   // Mark that content script has responded
   hasContentScriptResponded = true;
@@ -191,17 +181,6 @@ function updateTechList(technologies) {
   renderCombinedList();
 }
 
-function updateHeaderTechs(headerTechs) {
-  console.log('updateHeaderTechs called', { headerTechs });
-  // Update header-detected technologies
-  currentHeaderTechs = Array.isArray(headerTechs) ? headerTechs : [];
-
-  // Re-render combined tech list so header changes are reflected there too
-  renderCombinedList();
-
-  // Auto-refresh dump area when header techs update
-  if (dumpArea.textContent !== '') requestDump();
-}
 
 function updateAnalyzedUrls(analyzedUrls) {
   console.log('updateAnalyzedUrls called', { analyzedUrls });
@@ -233,12 +212,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   
   if (message.action === 'updateTechList') {
     updateTechList(message.technologies);
-  } else if (message.action === 'updateHeaderTechs') {
-    updateHeaderTechs(message.headerTechs || []);
   } else if (message.action === 'updateAnalyzedUrls') {
     updateAnalyzedUrls(message.analyzedUrls || []);
+  } else if (message.action === 'updateTargetUrl') {
+    console.log('🔗 Updating target URL', { newUrl: message.url });
+    currentTabUrl = message.url;
+    renderTargetUrl();
   } else if (message.action === 'clearTechs') {
+    console.log('🧹 clearTechs called - clearing all technologies');
     techList.innerHTML = '';
+    currentTechs = [];
     currentAnalyzedUrls = [];
     hasContentScriptResponded = false;
     
@@ -298,7 +281,6 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     if (response) {
       // Populate current state from response and render merged UI
       currentTechs = response.technologies || [];
-      currentHeaderTechs = response.headerTechs || [];
       currentAnalyzedUrls = response.analyzedUrls || [];
       
       // If we have technologies, hide the reload suggestion
@@ -316,15 +298,22 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   });
 
   // Request content analysis for this tab now that the panel is ready
+  console.log('🚀 Sidepanel requesting content analysis', { tabId });
   try {
-    chrome.runtime.sendMessage({ action: 'requestAnalyze', tabId }, () => { });
+    chrome.runtime.sendMessage({ action: 'requestAnalyze', tabId }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.warn('⚠️ Failed to send requestAnalyze:', chrome.runtime.lastError.message);
+      } else {
+        console.log('✅ RequestAnalyze sent successfully');
+      }
+    });
   } catch (e) {
-    // ignore
+    console.error('❌ Exception sending requestAnalyze:', e);
   }
 
   // Show reload suggestion after a delay if no technologies were detected
   setTimeout(() => {
-    if (currentTechs.length === 0 && currentHeaderTechs.length === 0) {
+    if (currentTechs.length === 0) {
       showReloadSuggestion();
     }
   }, 2000); // Wait 2 seconds for content script response

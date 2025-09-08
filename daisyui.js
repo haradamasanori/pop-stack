@@ -37,7 +37,9 @@ var exports_daisyui = {};
 __export(exports_daisyui, {
   default: () => daisyui_default
 });
-module.exports = __toCommonJS(exports_daisyui);
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = __toCommonJS(exports_daisyui);
+}
 
 // packages/daisyui/functions/themeOrder.js
 var themeOrder_default = [

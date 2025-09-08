@@ -1,6 +1,6 @@
 
 // Keep a per-tab store of detected technologies
-// entry shape: { url: string|null, technologies: [], headerTechs: Map, analyzedUrls: Set }
+// entry shape: { url: string|null, detectionsByUrl: Map<string, {headerComponents: [], htmlComponents: []}> }
 const tabDetections = new Map(); // tabId -> entry
 // Track which tabs currently have a listening side panel instance
 const readyPanels = new Set();
@@ -79,8 +79,32 @@ async function loadConfig() {
   }
 }
 
-async function detectTechnologiesFromHeaders(tabId, responseHeaders) {
-  if (!tabId || !responseHeaders) return;
+// Helper function to get all technologies and analyzed URLs for a tab
+function getAllTechnologiesForTab(tabId) {
+  const entry = tabDetections.get(tabId);
+  if (!entry || !entry.detectionsByUrl) {
+    return { allTechs: [], analyzedUrls: [] };
+  }
+  
+  const allTechs = [];
+  const analyzedUrls = Array.from(entry.detectionsByUrl.keys());
+  const seenTechKeys = new Set();
+  
+  // Combine all technologies from all URLs, avoiding duplicates
+  for (const [url, detection] of entry.detectionsByUrl) {
+    [...detection.headerComponents, ...detection.htmlComponents].forEach(tech => {
+      if (!seenTechKeys.has(tech.key)) {
+        allTechs.push(tech);
+        seenTechKeys.add(tech.key);
+      }
+    });
+  }
+  
+  return { allTechs, analyzedUrls };
+}
+
+async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
+  if (!tabId || !responseHeaders || !url) return;
   
   // Ensure config is loaded
   if (!techConfig) {
@@ -89,17 +113,30 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders) {
   
   let entry = tabDetections.get(tabId);
   if (!entry) {
-    entry = { headerTechs: new Map(), analyzedUrls: new Set() };
+    entry = { detectionsByUrl: new Map() };
     tabDetections.set(tabId, entry);
+  }
+  
+  // Get or create detection entry for this URL
+  let urlDetection = entry.detectionsByUrl.get(url);
+  if (!urlDetection) {
+    urlDetection = { headerComponents: [], htmlComponents: [] };
+    entry.detectionsByUrl.set(url, urlDetection);
   }
   
   // Convert headers to individual header strings for pattern matching
   const headerStrings = responseHeaders.map(h => `${h.name.toLowerCase()}: ${h.value || ''}`);
   
+  // Track detected technologies by key to avoid duplicates
+  const detectedTechKeys = new Set(urlDetection.headerComponents.map(tech => tech.key));
+  
   // Iterate through all configured technologies that have compiled header patterns
   Object.entries(techConfig).forEach(([key, config]) => {
     const { name, compiledHeaderPatterns = [] } = config;
     const matchedTexts = [];
+    
+    // Skip if already detected for this URL
+    if (detectedTechKeys.has(key)) return;
     
     // Check compiled header patterns against each header line
     for (const { pattern, regex } of compiledHeaderPatterns) {
@@ -112,7 +149,7 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders) {
     
     // If we found any matches, add the technology with all matched headers
     if (matchedTexts.length > 0) {
-      entry.headerTechs.set(key, {
+      const detectedTech = {
         key,
         name,
         description: config.description || '',
@@ -121,17 +158,25 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders) {
         developer: config.developer || '',
         detectionMethod: 'HTTP Headers',
         matchedTexts: [...new Set(matchedTexts)] // Remove duplicates
-      });
-      console.log(`Background: Detected ${name} via header patterns (matched: ${matchedTexts.join(', ')})`);
+      };
+      urlDetection.headerComponents.push(detectedTech);
+      detectedTechKeys.add(key);
+      console.log(`Background: Detected ${name} via header patterns for ${url} (matched: ${matchedTexts.join(', ')})`);
     }
   });
   
   // Notify side panel if it's open for this tab so UI updates immediately
-  const headerTechs = Array.from(entry.headerTechs.values());
+  const { allTechs, analyzedUrls } = getAllTechnologiesForTab(tabId);
+  
+  console.log('🔧 Header detection completed', { tabId, techCount: allTechs.length, panelReady: readyPanels.has(tabId) });
   
   // Only send to the panel if it is ready for this tab
   if (readyPanels.has(tabId)) {
-    chrome.runtime.sendMessage({ action: 'updateHeaderTechs', tabId, headerTechs }, (res) => { });
+    console.log('📨 Sending header detection results to ready panel');
+    chrome.runtime.sendMessage({ action: 'updateTechList', tabId, technologies: allTechs }, (res) => { });
+    chrome.runtime.sendMessage({ action: 'updateAnalyzedUrls', tabId, analyzedUrls }, (res) => { });
+  } else {
+    console.log('📦 Header detection results stored, panel not ready yet');
   }
 }
 
@@ -144,7 +189,14 @@ try {
       const tabId = details.tabId;
       // Only inspect responses for tabs where the side panel is enabled (panel ready)
       if (typeof tabId !== 'number' || tabId < 0) return;
-      if (!readyPanels.has(tabId)) return;
+      
+      console.log('🌐 webRequest.onHeadersReceived', { 
+        tabId, 
+        url: details.url, 
+        frameId: details.frameId,
+        panelReady: readyPanels.has(tabId),
+        readyPanels: Array.from(readyPanels)
+      });
 
       // Only accept main frame requests - use frameId as primary check since type can be unreliable
       // frameId 0 is always the main frame, regardless of type field
@@ -191,26 +243,10 @@ async function processResponseHeaders(details, tabId) {
       contentTypeHeader.value && 
       contentTypeHeader.value.toLowerCase().includes('text/html');
     
-    // Only track URLs for HTML content that we actually analyze
+    // Only process HTML content for technology detection
     if (isHtmlContent) {
-      let entry = tabDetections.get(tabId);
-      if (!entry) {
-        entry = { headerTechs: new Map(), analyzedUrls: new Set() };
-        tabDetections.set(tabId, entry);
-      }
-      entry.analyzedUrls.add(details.url);
-      
-      // Notify sidepanel about new analyzed URL if panel is ready
-      if (readyPanels.has(tabId)) {
-        chrome.runtime.sendMessage({ 
-          action: 'updateAnalyzedUrls', 
-          tabId, 
-          analyzedUrls: Array.from(entry.analyzedUrls) 
-        }, (res) => { });
-      }
+      await detectTechnologiesFromHeaders(tabId, details.responseHeaders, details.url);
     }
-    
-    await detectTechnologiesFromHeaders(tabId, details.responseHeaders);
   }
 }
   console.log('webRequest.onHeadersReceived listener registered');
@@ -263,9 +299,24 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
     // server headers can populate.
     let entry = tabDetections.get(tabId);
     if (entry) {
-      entry.technologies = [];
-      // Always clear analyzed URLs on navigation start, not just origin changes
-      entry.analyzedUrls = new Set();
+      // Clear HTML detections for all URLs on navigation start
+      for (const [url, detection] of entry.detectionsByUrl) {
+        detection.htmlComponents = [];
+      }
+      // Send updated tech list immediately after clearing HTML components
+      // so header components remain visible during navigation
+      if (panelReady) {
+        const { allTechs, analyzedUrls } = getAllTechnologiesForTab(tabId);
+        console.log('🔧 Background sending updateTechList after clearing HTML components', { tabId, techCount: allTechs.length, urlCount: analyzedUrls.length });
+        chrome.runtime.sendMessage({ action: 'updateTechList', tabId, technologies: allTechs }, (res) => { });
+        chrome.runtime.sendMessage({ action: 'updateAnalyzedUrls', tabId, analyzedUrls }, (res) => { });
+        // Also update the target URL
+        const newUrl = (tab && tab.url) ? tab.url : (info.url || null);
+        if (newUrl) {
+          console.log('🔗 Background sending updateTargetUrl', { tabId, newUrl });
+          chrome.runtime.sendMessage({ action: 'updateTargetUrl', tabId, url: newUrl }, (res) => { });
+        }
+      }
     }
     const newVisibleUrl = (tab && tab.url) ? tab.url : (info.url || null);
     if (panelReady && entry && entry.url && newVisibleUrl) {
@@ -273,55 +324,66 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
         const prev = new URL(entry.url);
         const next = new URL(newVisibleUrl);
         if (prev.origin !== next.origin) {
-          entry.headerTechs = new Map();
-          entry.analyzedUrls = new Set();
-          const headerTechs = [];
+          // Clear all detections when origin changes
+          entry.detectionsByUrl.clear();
+          const { allTechs, analyzedUrls } = getAllTechnologiesForTab(tabId);
           // Outer guard `panelReady` ensures readiness; send update directly
-          chrome.runtime.sendMessage({ action: 'updateHeaderTechs', tabId, headerTechs }, (res) => { });
-          chrome.runtime.sendMessage({ action: 'updateAnalyzedUrls', tabId, analyzedUrls: [] }, (res) => { });
+          chrome.runtime.sendMessage({ action: 'updateTechList', tabId, technologies: allTechs }, (res) => { });
+          chrome.runtime.sendMessage({ action: 'updateAnalyzedUrls', tabId, analyzedUrls }, (res) => { });
+          chrome.runtime.sendMessage({ action: 'updateTargetUrl', tabId, url: newVisibleUrl }, (res) => { });
         }
       } catch (e) {
         console.debug('URL parse failed while comparing origins', e);
       }
     }
 
-    try {
-      chrome.runtime.sendMessage({ action: 'clearTechs', tabId }, (res) => {
-        if (chrome.runtime.lastError) {
-          // Expected if no listener (side panel not open). Log at debug level.
-          console.debug('clearTechs message had no receiver', chrome.runtime.lastError);
-        }
-      });
-    } catch (e) {
-      // ignore
+    // Only send clearTechs if panel is NOT ready - if panel is ready, we already sent updated tech list above
+    if (!panelReady) {
+      try {
+        console.log('🧹 Background sending clearTechs message for navigation loading (panel not ready)', { tabId, url: (tab && tab.url) || info.url });
+        chrome.runtime.sendMessage({ action: 'clearTechs', tabId }, (res) => {
+          if (chrome.runtime.lastError) {
+            // Expected if no listener (side panel not open). Log at debug level.
+            console.debug('clearTechs message had no receiver', chrome.runtime.lastError);
+          }
+        });
+      } catch (e) {
+        // ignore
+      }
+    } else {
+      console.log('🧹 Skipping clearTechs message - panel is ready and already received updated tech list');
     }
   }
 
   // If the tab with the side panel navigates, update the cached visible URL
   if (tab && tab.url) {
     let entry = tabDetections.get(tabId);
-    if (!entry) entry = { url: tab.url, technologies: [], headerTechs: new Map(), analyzedUrls: new Set() };
-    entry.url = tab.url;
-    tabDetections.set(tabId, entry);
+    if (!entry) {
+      entry = { url: tab.url, detectionsByUrl: new Map() };
+      tabDetections.set(tabId, entry);
+    } else {
+      entry.url = tab.url;
+    }
   }
 
   if (info.status === 'complete' && tab.url) {
-    // If navigation completed, and this tab is enabled, clear header
-    // detections if the origin changed compared to the stored entry.url.
+    // If navigation completed, and this tab is enabled, update the URL and handle origin changes
     if (panelReady) {
+      // Always update the target URL on navigation complete
+      console.log('🔗 Sending updateTargetUrl on navigation complete', { tabId, url: tab.url });
+      chrome.runtime.sendMessage({ action: 'updateTargetUrl', tabId, url: tab.url }, () => { });
+      
       const entry = tabDetections.get(tabId);
       if (entry && entry.url) {
         try {
           const prev = new URL(entry.url);
           const next = new URL(tab.url);
           if (prev.origin !== next.origin) {
-            entry.headerTechs = new Map();
-            entry.analyzedUrls = new Set();
-            const headerTechs = [];
-            if (panelReady) {
-              chrome.runtime.sendMessage({ action: 'updateHeaderTechs', tabId, headerTechs }, () => { });
-              chrome.runtime.sendMessage({ action: 'updateAnalyzedUrls', tabId, analyzedUrls: [] }, () => { });
-            }
+            // Clear all detections for origin change on navigation completion
+            entry.detectionsByUrl.clear();
+            const { allTechs, analyzedUrls } = getAllTechnologiesForTab(tabId);
+            chrome.runtime.sendMessage({ action: 'updateTechList', tabId, technologies: allTechs }, () => { });
+            chrome.runtime.sendMessage({ action: 'updateAnalyzedUrls', tabId, analyzedUrls }, () => { });
           }
         } catch (e) {
           console.debug('URL parse failed while comparing origins on complete', e);
@@ -351,20 +413,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const tabId = message.tabId || (sender && sender.tab && sender.tab.id);
     if (tabId) {
       readyPanels.add(tabId);
+      console.log('🎛️ Panel ready for tab', tabId);
       // send current state for this tab, if present
-      const entry = tabDetections.get(tabId);
-      const payload = entry ? { 
-        technologies: entry.technologies || [], 
-        headerTechs: Array.from(entry.headerTechs.values()),
-        analyzedUrls: Array.from(entry.analyzedUrls || new Set())
-      } : { 
-        technologies: [], 
-        headerTechs: [],
-        analyzedUrls: []
-      };
-      chrome.runtime.sendMessage({ action: 'updateTechList', tabId, technologies: payload.technologies }, () => { });
-      chrome.runtime.sendMessage({ action: 'updateHeaderTechs', tabId, headerTechs: payload.headerTechs }, () => { });
-      chrome.runtime.sendMessage({ action: 'updateAnalyzedUrls', tabId, analyzedUrls: payload.analyzedUrls }, () => { });
+      const { allTechs, analyzedUrls } = getAllTechnologiesForTab(tabId);
+      console.log('📨 Sending stored detections to newly ready panel', { tabId, techCount: allTechs.length, urlCount: analyzedUrls.length });
+      chrome.runtime.sendMessage({ action: 'updateTechList', tabId, technologies: allTechs }, () => { });
+      chrome.runtime.sendMessage({ action: 'updateAnalyzedUrls', tabId, analyzedUrls }, () => { });
     }
     return; // handled
   }
@@ -375,8 +429,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message.action === 'requestAnalyze') {
     const tabId = message.tabId || (sender && sender.tab && sender.tab.id);
+    console.log('🚀 Background received requestAnalyze', { tabId });
     if (tabId) {
-      chrome.tabs.sendMessage(tabId, { action: 'analyze' }, () => { });
+      console.log('📨 Background sending analyze message to content script', { tabId });
+      chrome.tabs.sendMessage(tabId, { action: 'analyze' }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.warn('⚠️ Failed to send analyze message to content script:', chrome.runtime.lastError.message);
+        } else {
+          console.log('✅ Analyze message sent successfully to content script');
+        }
+      });
+    } else {
+      console.warn('⚠️ No tabId found for requestAnalyze message');
     }
     return;
   }
@@ -384,30 +448,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // directly to the side panel without needing an immediate tabs.sendMessage.
   if (message.action === 'detectedTechs') {
     const tabId = message.tabId || (sender && sender.tab && sender.tab.id);
-    if (tabId) {
+    const url = sender && sender.tab && sender.tab.url;
+    if (tabId && url) {
       let entry = tabDetections.get(tabId);
       if (!entry) {
-        entry = { technologies: [], headerTechs: new Map(), analyzedUrls: new Set() };
+        entry = { detectionsByUrl: new Map() };
         tabDetections.set(tabId, entry);
       }
-      entry.technologies = Array.isArray(message.technologies) ? message.technologies : [];
       
-      // Add current tab URL to analyzed URLs when content script detections are received
-      if (sender && sender.tab && sender.tab.url && entry.technologies.length > 0) {
-        entry.analyzedUrls.add(sender.tab.url);
-        // Notify sidepanel about the analyzed URL if panel is ready
-        if (readyPanels.has(tabId)) {
-          chrome.runtime.sendMessage({ 
-            action: 'updateAnalyzedUrls', 
-            tabId, 
-            analyzedUrls: Array.from(entry.analyzedUrls) 
-          }, (res) => { });
-        }
+      // Get or create detection entry for this URL
+      let urlDetection = entry.detectionsByUrl.get(url);
+      if (!urlDetection) {
+        urlDetection = { headerComponents: [], htmlComponents: [] };
+        entry.detectionsByUrl.set(url, urlDetection);
       }
       
-      // Forward to side panel UI only if a panel instance is ready for this tab
+      // Update HTML components for this URL
+      const technologies = Array.isArray(message.technologies) ? message.technologies : [];
+      urlDetection.htmlComponents = technologies;
+      
+      // Get combined results and notify sidepanel if panel is ready
       if (readyPanels.has(tabId)) {
-        chrome.runtime.sendMessage({ action: 'updateTechList', tabId, technologies: entry.technologies }, () => { });
+        const { allTechs, analyzedUrls } = getAllTechnologiesForTab(tabId);
+        console.log('🔧 Background sending updateTechList from detectedTechs message', { tabId, url, techCount: allTechs.length, htmlCount: technologies.length });
+        chrome.runtime.sendMessage({ action: 'updateTechList', tabId, technologies: allTechs }, () => { });
+        chrome.runtime.sendMessage({ action: 'updateAnalyzedUrls', tabId, analyzedUrls }, () => { });
       }
     }
     return; // handled
@@ -420,9 +485,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const entry = tabDetections.get(tabId);
         if (entry) {
           sendResponse({ entry: { 
-            technologies: entry.technologies || [], 
-            headerTechs: Array.from(entry.headerTechs.values()),
-            analyzedUrls: Array.from(entry.analyzedUrls || new Set())
+            detectionsByUrl: Object.fromEntries(
+              Array.from(entry.detectionsByUrl.entries()).map(([url, detection]) => [
+                url, {
+                  headerComponents: detection.headerComponents,
+                  htmlComponents: detection.htmlComponents
+                }
+              ])
+            )
           } });
         } else {
           sendResponse({ entry: null });
@@ -434,38 +504,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   if (message.action === 'getDetectedTechs') {
-    // Merge content-script detections with header detections for the active tab
+    // Return merged detections for the active tab using new structure
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs.length > 0) {
         const tabId = tabs[0].id;
-        chrome.tabs.sendMessage(
-          tabId,
-          { action: 'getDetectedTechs' },
-          (response) => {
-            console.log('chrome.tabs.sendMessage callback called', { tabId, response });
-            const entry = tabDetections.get(tabId) || { technologies: [], headerTechs: new Map(), analyzedUrls: new Set() };
-            const merged = {
-              ...(response || {}),
-              technologies: (response && response.technologies) ? response.technologies : entry.technologies || [],
-              headerTechs: Array.from(entry.headerTechs.values()),
-              analyzedUrls: Array.from(entry.analyzedUrls || new Set())
-            };
-            if (chrome.runtime.lastError) {
-              // Content script may not be available on all pages; this is expected
-              // in some cases (e.g. chrome:// pages, or before injection). Log at
-              // debug level to avoid noisy errors in the Extensions page.
-              console.debug('tabs.sendMessage failed (content script may be missing)', chrome.runtime.lastError);
-              // still send header info even if content script failed
-              sendResponse({ 
-                headerTechs: merged.headerTechs, 
-                analyzedUrls: merged.analyzedUrls,
-                error: chrome.runtime.lastError.message || chrome.runtime.lastError 
-              });
-            } else {
-              sendResponse(merged);
-            }
-          }
-        );
+        const { allTechs, analyzedUrls } = getAllTechnologiesForTab(tabId);
+        sendResponse({ 
+          technologies: allTechs,
+          analyzedUrls: analyzedUrls
+        });
       } else {
         sendResponse({ error: 'No active tab found.' });
       }
