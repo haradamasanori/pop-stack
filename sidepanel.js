@@ -5,6 +5,7 @@ const dumpArea = document.getElementById('dump-area');
 // Maintain current state so we can render a merged view
 let currentTechs = [];
 let currentAnalyzedUrls = [];
+let currentUrlsWithCounts = []; // Store URLs with component counts
 let currentTabId = null;
 let currentTabUrl = null;
 let hasContentScriptResponded = false;
@@ -102,26 +103,49 @@ function renderUnifiedUrls() {
   const urlsList = document.getElementById('analyzed-urls-list');
   if (!urlsList) return;
 
-  // Combine target URL and analyzed URLs, removing duplicates
-  const allUrls = new Set();
+  // Create a map to combine URLs with their counts
+  const urlMap = new Map();
   
   // Add current tab URL first if it exists
   if (currentTabUrl) {
-    allUrls.add(currentTabUrl);
+    // Check if we have counts for the target URL, otherwise use empty object
+    const targetUrlCounts = currentUrlsWithCounts.find(item => item.url === currentTabUrl);
+    urlMap.set(currentTabUrl, targetUrlCounts ? targetUrlCounts.counts : {});
   }
   
-  // Add analyzed URLs
-  currentAnalyzedUrls.forEach(url => allUrls.add(url));
+  // Add analyzed URLs with their counts
+  currentUrlsWithCounts.forEach(item => {
+    urlMap.set(item.url, item.counts);
+  });
   
-  // Convert to array and render
-  const uniqueUrls = Array.from(allUrls);
+  // If we have analyzed URLs but no counts data (fallback for old messages)
+  if (currentUrlsWithCounts.length === 0 && currentAnalyzedUrls.length > 0) {
+    currentAnalyzedUrls.forEach(url => {
+      if (!urlMap.has(url)) {
+        urlMap.set(url, {});
+      }
+    });
+  }
   
-  if (uniqueUrls.length > 0) {
-    urlsList.innerHTML = uniqueUrls
-      .map(url => {
+  if (urlMap.size > 0) {
+    urlsList.innerHTML = Array.from(urlMap.entries())
+      .map(([url, counts]) => {
         // Truncate long URLs with ellipsis in the middle to preserve domain and path
         const truncatedUrl = truncateUrl(url, 60);
-        return `<div class="text-xs text-base-content/70 truncate max-w-full" title="${url}">${truncatedUrl}</div>`;
+        
+        // Format component counts - only show counts that exist
+        const countParts = [];
+        if (counts.ip !== undefined) countParts.push(`ip(${counts.ip})`);
+        if (counts.http !== undefined) countParts.push(`http(${counts.http})`);
+        if (counts.html !== undefined) countParts.push(`html(${counts.html})`);
+        const countsText = countParts.join(', ');
+        
+        return `
+          <div class="mb-2">
+            <div class="text-xs text-base-content/70 truncate max-w-full" title="${url}">${truncatedUrl}</div>
+            <div class="text-[10px] text-base-content/50 mt-1 pl-2">${countsText}</div>
+          </div>
+        `;
       })
       .join('');
     document.getElementById('analyzed-urls-section').style.display = 'block';
@@ -245,6 +269,9 @@ function updateTechList(technologies) {
     hideReloadSuggestion();
   }
   
+  // Refresh URL counts from tabDetections  
+  refreshUrlCounts();
+  
   renderCombinedList();
 }
 
@@ -259,6 +286,51 @@ function updateAnalyzedUrls(analyzedUrls) {
 
   // Auto-refresh dump area when analyzed URLs update
   if (dumpArea.textContent !== '') requestDump();
+}
+
+function updateAnalyzedUrlsWithCounts(urlsWithCounts) {
+  console.log('updateAnalyzedUrlsWithCounts called', { urlsWithCounts });
+  
+  currentUrlsWithCounts = Array.isArray(urlsWithCounts) ? urlsWithCounts : [];
+  
+  // Extract URLs for backward compatibility
+  currentAnalyzedUrls = currentUrlsWithCounts.map(item => item.url);
+
+  // Re-render to update URL display with counts
+  renderUnifiedUrls();
+
+  // Auto-refresh dump area when analyzed URLs update
+  if (dumpArea.textContent !== '') requestDump();
+}
+
+// Function to refresh URL counts from tabDetections
+function refreshUrlCounts() {
+  if (!currentTabId) return;
+  
+  chrome.runtime.sendMessage({ action: 'getTabDetections', tabId: currentTabId }, (response) => {
+    if (response && response.entry) {
+      const detectionsByUrl = response.entry.detectionsByUrl || {};
+      
+      // Build URLs with counts from the detectionsByUrl data
+      currentUrlsWithCounts = Object.entries(detectionsByUrl).map(([url, detection]) => {
+        const counts = {};
+        if (detection.ipComponents) counts.ip = detection.ipComponents.length;
+        if (detection.headerComponents) counts.http = detection.headerComponents.length;
+        if (detection.htmlComponents) counts.html = detection.htmlComponents.length;
+        
+        return {
+          url: url,
+          counts: counts
+        };
+      });
+      
+      // Extract URLs for backward compatibility
+      currentAnalyzedUrls = Object.keys(detectionsByUrl);
+      
+      // Re-render URLs with updated counts
+      renderUnifiedUrls();
+    }
+  });
 }
 
 function renderDump(entry) {
@@ -281,6 +353,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     updateTechList(message.technologies);
   } else if (message.action === 'updateAnalyzedUrls') {
     updateAnalyzedUrls(message.analyzedUrls || []);
+  } else if (message.action === 'updateAnalyzedUrlsWithCounts') {
+    updateAnalyzedUrlsWithCounts(message.urlsWithCounts || []);
+  } else if (message.action === 'updateAllComponents') {
+    // Handle all components message by storing them and refreshing counts
+    currentTechs = Array.isArray(message.components) ? message.components : [];
+    refreshUrlCounts();
+    renderCombinedList();
   } else if (message.action === 'updateTargetUrl') {
     console.log('🔗 Updating target URL', { newUrl: message.url });
     currentTabUrl = message.url;
@@ -290,6 +369,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     techList.innerHTML = '';
     currentTechs = [];
     currentAnalyzedUrls = [];
+    currentUrlsWithCounts = [];
     hasContentScriptResponded = false;
     
     // Update target URL when navigation occurs
@@ -341,13 +421,33 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     // ignore response; background will send current state after registering readiness
   });
 
-  // Request the current merged detections for the tab
-  chrome.runtime.sendMessage({ action: 'getDetectedTechs', tabId: tabId }, (response) => {
+  // Request the current tabDetections for the tab
+  chrome.runtime.sendMessage({ action: 'getTabDetections', tabId: tabId }, (response) => {
     console.log('chrome.runtime.sendMessage callback called', { tabId, response });
-    if (response) {
-      // Populate current state from response and render merged UI
-      currentTechs = response.technologies || [];
-      currentAnalyzedUrls = response.analyzedUrls || [];
+    if (response && response.entry) {
+      // Extract data from tabDetections structure
+      const detectionsByUrl = response.entry.detectionsByUrl || {};
+      
+      // Build URLs with counts from the detectionsByUrl data
+      currentUrlsWithCounts = Object.entries(detectionsByUrl).map(([url, detection]) => ({
+        url: url,
+        counts: {
+          ip: (detection.ipComponents || []).length,
+          http: (detection.headerComponents || []).length,
+          html: (detection.htmlComponents || []).length
+        }
+      }));
+      
+      // Extract all components for the tech list
+      currentTechs = [];
+      Object.values(detectionsByUrl).forEach(detection => {
+        currentTechs.push(...(detection.headerComponents || []));
+        currentTechs.push(...(detection.htmlComponents || []));
+        currentTechs.push(...(detection.ipComponents || []));
+      });
+      
+      // Extract URLs for backward compatibility
+      currentAnalyzedUrls = Object.keys(detectionsByUrl);
       
       // If we have technologies, hide the reload suggestion
       if (currentTechs.length > 0) {

@@ -283,8 +283,13 @@ async function detectTechnologiesFromIP(tabId, url, hostname, ipAddress) {
   // Get or create detection entry for this URL
   let urlDetection = entry.detectionsByUrl.get(url);
   if (!urlDetection) {
-    urlDetection = { headerComponents: [], htmlComponents: [], ipComponents: [] };
+    urlDetection = {};
     entry.detectionsByUrl.set(url, urlDetection);
+  }
+  
+  // Ensure ipComponents array exists for IP detection
+  if (!urlDetection.ipComponents) {
+    urlDetection.ipComponents = [];
   }
   
   // Track detected technologies by key to avoid duplicates
@@ -340,11 +345,11 @@ async function detectTechnologiesFromIP(tabId, url, hostname, ipAddress) {
   if (readyPanels.has(tabId)) {
     console.log('📨 Sending IP detection results to ready panel');
     chrome.runtime.sendMessage({ action: 'updateTechList', tabId, technologies: allTechs }, (res) => { });
-    chrome.runtime.sendMessage({ action: 'updateAnalyzedUrls', tabId, analyzedUrls }, (res) => { });
   } else {
     console.log('📦 IP detection results stored, panel not ready yet');
   }
 }
+
 
 // Helper function to get all technologies and analyzed URLs for a tab
 function getAllTechnologiesForTab(tabId) {
@@ -359,13 +364,17 @@ function getAllTechnologiesForTab(tabId) {
   
   // Combine all technologies from all URLs, merging matchedText for duplicates
   for (const [url, detection] of entry.detectionsByUrl) {
+    const headerComponents = detection.headerComponents || [];
+    const htmlComponents = detection.htmlComponents || [];
+    const ipComponents = detection.ipComponents || [];
+    
     console.log(`🔍 Processing detections for URL: ${url}`, {
-      headerComponents: detection.headerComponents.length,
-      htmlComponents: detection.htmlComponents.length, 
-      ipComponents: (detection.ipComponents || []).length
+      headerComponents: headerComponents.length,
+      htmlComponents: htmlComponents.length, 
+      ipComponents: ipComponents.length
     });
     
-    [...detection.headerComponents, ...detection.htmlComponents, ...(detection.ipComponents || [])].forEach(tech => {
+    [...headerComponents, ...htmlComponents, ...ipComponents].forEach(tech => {
       console.log(`🔧 Processing tech: ${tech.name} (key: ${tech.key}, method: ${tech.detectionMethod})`);
       
       if (!techMap.has(tech.key)) {
@@ -428,8 +437,13 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
   // Get or create detection entry for this URL
   let urlDetection = entry.detectionsByUrl.get(url);
   if (!urlDetection) {
-    urlDetection = { headerComponents: [], htmlComponents: [], ipComponents: [] };
+    urlDetection = {};
     entry.detectionsByUrl.set(url, urlDetection);
+  }
+  
+  // Ensure headerComponents array exists for HTTP detection
+  if (!urlDetection.headerComponents) {
+    urlDetection.headerComponents = [];
   }
   
   // Convert headers to individual header strings for pattern matching
@@ -486,7 +500,6 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
   if (readyPanels.has(tabId)) {
     console.log('📨 Sending header detection results to ready panel');
     chrome.runtime.sendMessage({ action: 'updateTechList', tabId, technologies: allTechs }, (res) => { });
-    chrome.runtime.sendMessage({ action: 'updateAnalyzedUrls', tabId, analyzedUrls }, (res) => { });
   } else {
     console.log('📦 Header detection results stored, panel not ready yet');
   }
@@ -547,20 +560,11 @@ async function processResponseHeaders(details, tabId) {
   if (details.responseHeaders) {
     console.log('webRequest.onHeadersReceived', { tabId, url: details.url, responseHeaders: details.responseHeaders });
     
-    // Check if this is an HTML response by looking at Content-Type header
-    const contentTypeHeader = details.responseHeaders.find(h => 
-      h.name.toLowerCase() === 'content-type'
-    );
-    const isHtmlContent = contentTypeHeader && 
-      contentTypeHeader.value && 
-      contentTypeHeader.value.toLowerCase().includes('text/html');
+    // Process all main-frame responses for HTTP header technology detection
+    // Technologies can be detected from headers regardless of content type
+    await detectTechnologiesFromHeaders(tabId, details.responseHeaders, details.url);
     
-    // Only process HTML content for technology detection
-    if (isHtmlContent) {
-      await detectTechnologiesFromHeaders(tabId, details.responseHeaders, details.url);
-      
-      // IP detection will be handled by webRequest.onCompleted listener
-    }
+    // IP detection will be handled by webRequest.onCompleted listener
   }
 }
   console.log('webRequest.onHeadersReceived listener registered');
@@ -683,7 +687,9 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
     if (entry) {
       // Clear HTML detections for all URLs on navigation start
       for (const [url, detection] of entry.detectionsByUrl) {
-        detection.htmlComponents = [];
+        if (detection.htmlComponents) {
+          delete detection.htmlComponents;
+        }
       }
       // Send updated tech list immediately after clearing HTML components
       // so header components remain visible during navigation
@@ -691,7 +697,6 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
         const { allTechs, analyzedUrls } = getAllTechnologiesForTab(tabId);
         console.log('🔧 Background sending updateTechList after clearing HTML components', { tabId, techCount: allTechs.length, urlCount: analyzedUrls.length });
         chrome.runtime.sendMessage({ action: 'updateTechList', tabId, technologies: allTechs }, (res) => { });
-        chrome.runtime.sendMessage({ action: 'updateAnalyzedUrls', tabId, analyzedUrls }, (res) => { });
         // Also update the target URL
         const newUrl = (tab && tab.url) ? tab.url : (info.url || null);
         if (newUrl) {
@@ -711,7 +716,6 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
           const { allTechs, analyzedUrls } = getAllTechnologiesForTab(tabId);
           // Outer guard `panelReady` ensures readiness; send update directly
           chrome.runtime.sendMessage({ action: 'updateTechList', tabId, technologies: allTechs }, (res) => { });
-          chrome.runtime.sendMessage({ action: 'updateAnalyzedUrls', tabId, analyzedUrls }, (res) => { });
           chrome.runtime.sendMessage({ action: 'updateTargetUrl', tabId, url: newVisibleUrl }, (res) => { });
         }
       } catch (e) {
@@ -765,7 +769,6 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
             entry.detectionsByUrl.clear();
             const { allTechs, analyzedUrls } = getAllTechnologiesForTab(tabId);
             chrome.runtime.sendMessage({ action: 'updateTechList', tabId, technologies: allTechs }, () => { });
-            chrome.runtime.sendMessage({ action: 'updateAnalyzedUrls', tabId, analyzedUrls }, () => { });
           }
         } catch (e) {
           console.debug('URL parse failed while comparing origins on complete', e);
@@ -797,7 +800,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const { allTechs, analyzedUrls } = getAllTechnologiesForTab(tabId);
       console.log('📨 Sending stored detections to newly ready panel', { tabId, techCount: allTechs.length, urlCount: analyzedUrls.length });
       chrome.runtime.sendMessage({ action: 'updateTechList', tabId, technologies: allTechs }, () => { });
-      chrome.runtime.sendMessage({ action: 'updateAnalyzedUrls', tabId, analyzedUrls }, () => { });
     }
     return; // handled
   }
@@ -838,20 +840,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // Get or create detection entry for this URL
       let urlDetection = entry.detectionsByUrl.get(url);
       if (!urlDetection) {
-        urlDetection = { headerComponents: [], htmlComponents: [], ipComponents: [] };
+        urlDetection = {};
         entry.detectionsByUrl.set(url, urlDetection);
       }
       
-      // Update HTML components for this URL
+      // Update HTML components for this URL only if there are detections
       const technologies = Array.isArray(message.technologies) ? message.technologies : [];
-      urlDetection.htmlComponents = technologies;
+      if (technologies.length > 0) {
+        urlDetection.htmlComponents = technologies;
+      }
       
       // Get combined results and notify sidepanel if panel is ready
       if (readyPanels.has(tabId)) {
         const { allTechs, analyzedUrls } = getAllTechnologiesForTab(tabId);
         console.log('🔧 Background sending updateTechList from detectedTechs message', { tabId, url, techCount: allTechs.length, htmlCount: technologies.length });
         chrome.runtime.sendMessage({ action: 'updateTechList', tabId, technologies: allTechs }, () => { });
-        chrome.runtime.sendMessage({ action: 'updateAnalyzedUrls', tabId, analyzedUrls }, () => { });
       }
     }
     return; // handled
@@ -865,13 +868,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (entry) {
           sendResponse({ entry: { 
             detectionsByUrl: Object.fromEntries(
-              Array.from(entry.detectionsByUrl.entries()).map(([url, detection]) => [
-                url, {
-                  headerComponents: detection.headerComponents,
-                  htmlComponents: detection.htmlComponents,
-                  ipComponents: detection.ipComponents || []
-                }
-              ])
+              Array.from(entry.detectionsByUrl.entries()).map(([url, detection]) => {
+                const result = {};
+                if (detection.headerComponents) result.headerComponents = detection.headerComponents;
+                if (detection.htmlComponents) result.htmlComponents = detection.htmlComponents;
+                if (detection.ipComponents) result.ipComponents = detection.ipComponents;
+                return [url, result];
+              })
             )
           } });
         } else {
