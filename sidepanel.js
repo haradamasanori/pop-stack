@@ -98,12 +98,81 @@ function createTechCard(tech) {
   return card;
 }
 
-function renderTargetUrl() {
-  const targetUrlElement = document.getElementById('target-url');
-  if (currentTabUrl && targetUrlElement) {
-    targetUrlElement.textContent = currentTabUrl;
-    targetUrlElement.title = currentTabUrl;
+function renderUnifiedUrls() {
+  const urlsList = document.getElementById('analyzed-urls-list');
+  if (!urlsList) return;
+
+  // Combine target URL and analyzed URLs, removing duplicates
+  const allUrls = new Set();
+  
+  // Add current tab URL first if it exists
+  if (currentTabUrl) {
+    allUrls.add(currentTabUrl);
   }
+  
+  // Add analyzed URLs
+  currentAnalyzedUrls.forEach(url => allUrls.add(url));
+  
+  // Convert to array and render
+  const uniqueUrls = Array.from(allUrls);
+  
+  if (uniqueUrls.length > 0) {
+    urlsList.innerHTML = uniqueUrls
+      .map(url => {
+        // Truncate long URLs with ellipsis in the middle to preserve domain and path
+        const truncatedUrl = truncateUrl(url, 60);
+        return `<div class="text-xs text-base-content/70 truncate max-w-full" title="${url}">${truncatedUrl}</div>`;
+      })
+      .join('');
+    document.getElementById('analyzed-urls-section').style.display = 'block';
+  } else {
+    document.getElementById('analyzed-urls-section').style.display = 'none';
+  }
+}
+
+function truncateUrl(url, maxLength) {
+  if (url.length <= maxLength) return url;
+  
+  try {
+    const urlObj = new URL(url);
+    const protocol = urlObj.protocol; // e.g., "https:"
+    const hostname = urlObj.hostname; // e.g., "example.com"
+    const protocolAndHost = protocol + '//' + hostname; // e.g., "https://example.com"
+    const pathAndQuery = urlObj.pathname + urlObj.search + urlObj.hash;
+    
+    // If just the protocol + hostname is too long, truncate the hostname part
+    if (protocolAndHost.length >= maxLength - 3) {
+      const protocolPart = protocol + '//'; // e.g., "https://"
+      const availableForHost = maxLength - protocolPart.length - 3; // 3 chars for "..."
+      if (availableForHost > 0) {
+        return protocolPart + hostname.substring(0, availableForHost) + '...';
+      } else {
+        // If even protocol is too long, just truncate the whole URL
+        return url.substring(0, maxLength - 3) + '...';
+      }
+    }
+    
+    // Calculate how much space we have for the path
+    const availableForPath = maxLength - protocolAndHost.length - 3; // 3 chars for "..."
+    
+    if (pathAndQuery.length <= availableForPath) {
+      return protocolAndHost + pathAndQuery;
+    }
+    
+    // Truncate path from the middle, keeping start and end
+    const pathStart = pathAndQuery.substring(0, Math.floor(availableForPath / 2));
+    const pathEnd = pathAndQuery.substring(pathAndQuery.length - Math.floor(availableForPath / 2));
+    
+    return protocolAndHost + pathStart + '...' + pathEnd;
+  } catch (e) {
+    // Fallback for invalid URLs
+    return url.substring(0, maxLength - 3) + '...';
+  }
+}
+
+// Keep the old function for backward compatibility but make it call the new one
+function renderTargetUrl() {
+  renderUnifiedUrls();
 }
 
 function showReloadSuggestion() {
@@ -121,23 +190,12 @@ function hideReloadSuggestion() {
 }
 
 function renderAnalyzedUrls() {
-  const urlsList = document.getElementById('analyzed-urls-list');
-  if (!urlsList) return;
-
-  if (currentAnalyzedUrls.length > 0) {
-    urlsList.innerHTML = currentAnalyzedUrls
-      .map(url => `<div class="text-xs text-base-content/70 truncate" title="${url}">${url}</div>`)
-      .join('');
-    document.getElementById('analyzed-urls-section').style.display = 'block';
-  } else {
-    document.getElementById('analyzed-urls-section').style.display = 'none';
-  }
+  renderUnifiedUrls();
 }
 
 function renderCombinedList() {
-  // Render target URL and analyzed URLs first
-  renderTargetUrl();
-  renderAnalyzedUrls();
+  // Render unified URLs list 
+  renderUnifiedUrls();
   
   // Build a unified list of all detected technologies
   techList.innerHTML = '';
@@ -238,11 +296,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs.length > 0 && tabs[0].id === currentTabId) {
         currentTabUrl = tabs[0].url;
-        renderTargetUrl();
       }
     });
     
-    renderAnalyzedUrls();
+    renderUnifiedUrls();
     showReloadSuggestion();
     requestDump();
   }

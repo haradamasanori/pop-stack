@@ -101,3 +101,17 @@ main {
     font-size: 0.75rem;
   }
 }
+
+/* URL list styling - prevent horizontal scrollbars */
+#analyzed-urls-list {
+  word-break: break-all;
+  overflow-wrap: break-word;
+}
+
+#analyzed-urls-list > div {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  min-width: 0; /* Allow flex items to shrink */
+}
