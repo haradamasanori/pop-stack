@@ -7,6 +7,7 @@ let currentAnalyzedUrls = [];
 let currentUrlsWithCounts = []; // Store URLs with component counts
 let currentTabId = null;
 let currentTabUrl = null;
+let currentDetectionsByUrl = {}; // Store detectionsByUrl for current URL
 let hasContentScriptResponded = false;
 
 function createTechCard(tech) {
@@ -228,9 +229,6 @@ function hideReloadSuggestion() {
   }
 }
 
-function renderAnalyzedUrls() {
-  renderUnifiedUrls();
-}
 
 function renderCombinedList() {
   // Render unified URLs list 
@@ -252,145 +250,123 @@ function renderCombinedList() {
   }
 }
 
-function updateTechList(technologies) {
-  console.log('🔧 updateTechList called', { technologies, count: Array.isArray(technologies) ? technologies.length : 0 });
-  
-  // Debug each technology's matchedTexts
-  if (Array.isArray(technologies)) {
-    technologies.forEach((tech, index) => {
-      if (typeof tech === 'object') {
-        console.log(`🎯 Tech ${index}: ${tech.name} (${tech.detectionMethod}) - matchedTexts: [${tech.matchedTexts?.join(', ') || 'none'}]`);
-      }
-    });
-  }
-  // Handle both old string format and new rich object format
-  currentTechs = Array.isArray(technologies) ? technologies : [];
-  // Deduplicate based on name property for rich objects, or string value
-  const seen = new Set();
-  currentTechs = currentTechs.filter(tech => {
-    const key = typeof tech === 'object' ? tech.name : tech;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-  
-  console.log('🔧 updateTechList processed', { finalCount: currentTechs.length, techNames: currentTechs.map(t => t.name || t) });
-  
-  // Mark that content script has responded
-  hasContentScriptResponded = true;
-  
-  // Only hide reload suggestion if technologies were actually detected
-  if (currentTechs.length > 0) {
-    hideReloadSuggestion();
-  }
-  
-  // Refresh URL counts from tabDetections  
-  refreshUrlCounts();
-  
-  renderCombinedList();
-}
 
 
-function updateAnalyzedUrls(analyzedUrls) {
-  console.log('updateAnalyzedUrls called', { analyzedUrls });
-  // Update analyzed URLs
-  currentAnalyzedUrls = Array.isArray(analyzedUrls) ? analyzedUrls : [];
 
-  // Re-render to update URL display
-  renderAnalyzedUrls();
-
-  // Auto-refresh dump area when analyzed URLs update
-  if (dumpArea.textContent !== '') requestDump();
-}
-
-function updateAnalyzedUrlsWithCounts(urlsWithCounts) {
-  console.log('updateAnalyzedUrlsWithCounts called', { urlsWithCounts });
-  
-  currentUrlsWithCounts = Array.isArray(urlsWithCounts) ? urlsWithCounts : [];
-  
-  // Extract URLs for backward compatibility
-  currentAnalyzedUrls = currentUrlsWithCounts.map(item => item.url);
-
-  // Re-render to update URL display with counts
-  renderUnifiedUrls();
-
-  // Auto-refresh dump area when analyzed URLs update
-  if (dumpArea.textContent !== '') requestDump();
-}
-
-// Function to refresh URL counts from tabDetections
-function refreshUrlCounts() {
-  if (!currentTabId) return;
-  
-  chrome.runtime.sendMessage({ action: 'getTabDetections', tabId: currentTabId }, (response) => {
-    if (response && response.entry) {
-      const detectionsByUrl = response.entry.detectionsByUrl || {};
-      
-      // Build URLs with counts from the detectionsByUrl data
-      currentUrlsWithCounts = Object.entries(detectionsByUrl).map(([url, detection]) => {
-        const counts = {};
-        if (detection.ipComponents) counts.ip = detection.ipComponents.length;
-        if (detection.headerComponents) counts.http = detection.headerComponents.length;
-        if (detection.htmlComponents) counts.html = detection.htmlComponents.length;
-        
-        return {
-          url: url,
-          counts: counts
-        };
-      });
-      
-      // Extract URLs for backward compatibility
-      currentAnalyzedUrls = Object.keys(detectionsByUrl);
-      
-      // Re-render URLs with updated counts
-      renderUnifiedUrls();
-    }
-  });
-}
 
 function renderDump(entry) {
   if (!entry) {
     dumpArea.textContent = 'No data.';
     return;
   }
-  dumpArea.textContent = JSON.stringify(entry, null, 2);
+  // Show only the detectionsByUrl data structure
+  const detectionsByUrl = entry.detectionsByUrl || {};
+  dumpArea.textContent = JSON.stringify(detectionsByUrl, null, 2);
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('chrome.runtime.onMessage.addListener called', { message, sender });
+  console.log('onMessage received', { message, sender });
   
   // Only process messages for this tab
   if (message.tabId && currentTabId && message.tabId !== currentTabId) {
     return;
   }
   
-  if (message.action === 'updateTechList') {
-    updateTechList(message.technologies);
-  } else if (message.action === 'updateAnalyzedUrls') {
-    updateAnalyzedUrls(message.analyzedUrls || []);
-  } else if (message.action === 'updateAnalyzedUrlsWithCounts') {
-    updateAnalyzedUrlsWithCounts(message.urlsWithCounts || []);
-  } else if (message.action === 'updateAllComponents') {
-    // Handle all components message by storing them and refreshing counts
-    currentTechs = Array.isArray(message.components) ? message.components : [];
-    refreshUrlCounts();
-    renderCombinedList();
-  } else if (message.action === 'updateTargetUrl') {
+  if (message.action === 'updateTargetUrl') {
     console.log('🔗 Updating target URL', { newUrl: message.url });
     currentTabUrl = message.url;
     renderTargetUrl();
+  } else if (message.action === 'updateDetectionsByUrl') {
+    console.log('🔧 updateDetectionsByUrl received', { detectionsByUrl: message.detectionsByUrl });
+    
+    // Update the dump area with the received detectionsByUrl
+    if (message.detectionsByUrl) {
+      dumpArea.textContent = JSON.stringify(message.detectionsByUrl, null, 2);
+    }
+    
+    if (message.detectionsByUrl) {
+      // Store the detectionsByUrl for the current URL
+      currentDetectionsByUrl = message.detectionsByUrl;
+      
+      // Build URLs with counts from the detectionsByUrl data
+      currentUrlsWithCounts = Object.entries(currentDetectionsByUrl).map(([url, detection]) => ({
+        url: url,
+        counts: {
+          ip: (detection.ipComponents || []).length,
+          http: (detection.headerComponents || []).length,
+          html: (detection.htmlComponents || []).length
+        }
+      }));
+      
+      // Extract all components for the tech list with deduplication
+      currentTechs = [];
+      const techMap = new Map(); // Use Map to track and merge duplicate technologies
+      
+      // Combine all technologies from all URLs, merging duplicates by key
+      Object.values(currentDetectionsByUrl).forEach(detection => {
+        const headerComponents = detection.headerComponents || [];
+        const htmlComponents = detection.htmlComponents || [];
+        const ipComponents = detection.ipComponents || [];
+        
+        [...headerComponents, ...htmlComponents, ...ipComponents].forEach(tech => {
+          if (!techMap.has(tech.key)) {
+            // First occurrence - add as is
+            techMap.set(tech.key, { ...tech });
+          } else {
+            // Duplicate found - merge matchedTexts and detection methods
+            const existing = techMap.get(tech.key);
+            const existingTexts = existing.matchedTexts || [];
+            const newTexts = tech.matchedTexts || [];
+            
+            // Combine and deduplicate matchedTexts
+            const combinedTexts = [...existingTexts, ...newTexts];
+            existing.matchedTexts = [...new Set(combinedTexts)].slice(0, 10); // Dedupe and limit to 10
+            
+            // Update detection method to show it was detected by multiple methods
+            const methods = new Set();
+            if (existing.detectionMethod) methods.add(existing.detectionMethod);
+            if (tech.detectionMethod) methods.add(tech.detectionMethod);
+            
+            if (methods.size > 1) {
+              existing.detectionMethod = Array.from(methods).join(' + ');
+            }
+          }
+        });
+      });
+      
+      // Convert Map values to array
+      currentTechs = Array.from(techMap.values());
+      
+      // Extract URLs for backward compatibility
+      currentAnalyzedUrls = Object.keys(currentDetectionsByUrl);
+      
+      // If we have technologies, hide the reload suggestion
+      if (currentTechs.length > 0) {
+        hasContentScriptResponded = true;
+        hideReloadSuggestion();
+      }
+      
+      renderCombinedList();
+    }
   } else if (message.action === 'clearTechs') {
     console.log('🧹 clearTechs called - clearing all technologies');
     techList.innerHTML = '';
     currentTechs = [];
     currentAnalyzedUrls = [];
     currentUrlsWithCounts = [];
+    currentDetectionsByUrl = {};
     hasContentScriptResponded = false;
     
     // Update target URL when navigation occurs
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs.length > 0 && tabs[0].id === currentTabId) {
-        currentTabUrl = tabs[0].url;
+        const newUrl = tabs[0].url;
+        if (currentTabUrl !== newUrl) {
+          console.log('🔄 URL changed, calling getDetectionsByUrl', { oldUrl: currentTabUrl, newUrl });
+          currentTabUrl = newUrl;
+          // Call getDetectionsByUrl when URL changes (will trigger updateDetectionsByUrl message)
+          chrome.runtime.sendMessage({ action: 'getDetectionsByUrl', tabId: currentTabId });
+        }
       }
     });
     
@@ -406,15 +382,8 @@ function requestDump() {
     return;
   }
   
-  chrome.runtime.sendMessage({ action: 'getTabDetections', tabId: currentTabId }, (response) => {
-    if (response && response.entry) {
-      renderDump(response.entry);
-    } else if (response && response.error) {
-      dumpArea.textContent = 'Error: ' + response.error;
-    } else {
-      dumpArea.textContent = 'No data.';
-    }
-  });
+  // Request detectionsByUrl (will trigger updateDetectionsByUrl message which updates dump area)
+  chrome.runtime.sendMessage({ action: 'getDetectionsByUrl', tabId: currentTabId });
 }
 
 
@@ -440,47 +409,8 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     // ignore response; background will send current state after registering readiness
   });
 
-  // Request the current tabDetections for the tab
-  chrome.runtime.sendMessage({ action: 'getTabDetections', tabId: tabId }, (response) => {
-    console.log('chrome.runtime.sendMessage callback called', { tabId, response });
-    if (response && response.entry) {
-      // Extract data from tabDetections structure
-      const detectionsByUrl = response.entry.detectionsByUrl || {};
-      
-      // Build URLs with counts from the detectionsByUrl data
-      currentUrlsWithCounts = Object.entries(detectionsByUrl).map(([url, detection]) => ({
-        url: url,
-        counts: {
-          ip: (detection.ipComponents || []).length,
-          http: (detection.headerComponents || []).length,
-          html: (detection.htmlComponents || []).length
-        }
-      }));
-      
-      // Extract all components for the tech list
-      currentTechs = [];
-      Object.values(detectionsByUrl).forEach(detection => {
-        currentTechs.push(...(detection.headerComponents || []));
-        currentTechs.push(...(detection.htmlComponents || []));
-        currentTechs.push(...(detection.ipComponents || []));
-      });
-      
-      // Extract URLs for backward compatibility
-      currentAnalyzedUrls = Object.keys(detectionsByUrl);
-      
-      // If we have technologies, hide the reload suggestion
-      if (currentTechs.length > 0) {
-        hasContentScriptResponded = true;
-        hideReloadSuggestion();
-      } else if (currentAnalyzedUrls.length > 0) {
-        // If we have analyzed URLs but no technologies, content script likely responded
-        // but found nothing - keep suggestion visible to suggest reloading for full analysis
-        hasContentScriptResponded = true;
-      }
-      
-      renderCombinedList();
-    }
-  });
+  // Request the current detectionsByUrl for the tab (will trigger updateDetectionsByUrl message)
+  chrome.runtime.sendMessage({ action: 'getDetectionsByUrl', tabId: tabId });
 
   // Request content analysis for this tab now that the panel is ready
   console.log('🚀 Sidepanel requesting content analysis', { tabId });
