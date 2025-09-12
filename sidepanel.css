@@ -115,3 +115,20 @@ main {
   max-width: 100%;
   min-width: 0; /* Allow flex items to shrink */
 }
+
+/* Matched text wrapping - force long text to wrap even without spaces */
+.matched-text-item {
+  word-break: break-all !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  hyphens: auto !important;
+}
+
+/* Card hover effect to indicate clickability */
+.tech-card:hover {
+  transform: scale(1.02);
+  transition: transform 0.2s ease-in-out;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}

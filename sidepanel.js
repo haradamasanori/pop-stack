@@ -1,5 +1,4 @@
 const techList = document.getElementById('tech-list');
-const dumpBtn = document.getElementById('dump-btn');
 const dumpArea = document.getElementById('dump-area');
 
 // Maintain current state so we can render a merged view
@@ -30,11 +29,18 @@ function createTechCard(tech) {
   const matchedTextsListElement = card.querySelector('[data-matched-texts-list]');
   const tagsElement = card.querySelector('[data-tags]');
 
-  // Set title with optional link and developer info in a single inline span
+  // Set title with optional link, developer info, and tags in a single inline span
+  const maxTags = window.innerWidth > 400 ? 4 : 3;
+  const tagsBadges = tags.length > 0 
+    ? ` ${tags.slice(0, maxTags)
+        .map(tag => `<span class="badge badge-xs badge-outline ml-1">${tag}</span>`)
+        .join('')}`
+    : '';
+    
   const titleContent = link
     ? `<a href="${link}" target="_blank" class="link link-primary">${name}</a>${developer 
-      ? ` <span class="text-[10px] text-base-content/50 font-normal">by ${developer}</span>` : ''}`
-    : `${name}${developer ? ` <span class="text-sm text-base-content/50 font-normal">by ${developer}</span>` : ''}`;
+      ? ` <span class="text-[10px] text-base-content/50 font-normal">by ${developer}</span>` : ''}${tagsBadges}`
+    : `${name}${developer ? ` <span class="text-sm text-base-content/50 font-normal">by ${developer}</span>` : ''}${tagsBadges}`;
 
   titleElement.innerHTML = `<span class="inline">${titleContent}</span>`;
 
@@ -50,9 +56,15 @@ function createTechCard(tech) {
         descElement.classList.remove('line-clamp-2');
         descElement.classList.add('expanded-description');
         descElement.textContent = description + ' (click to collapse)';
+        // Show matched texts when expanded
+        if (matchedTexts && matchedTexts.length > 0) {
+          matchedTextsElement.style.display = 'block';
+        }
       } else {
         // Add collapse animation before switching to clamped state
         descElement.style.animation = 'collapseText 0.3s ease-in';
+        // Hide matched texts immediately when collapsing
+        matchedTextsElement.style.display = 'none';
         setTimeout(() => {
           descElement.classList.remove('expanded-description');
           descElement.classList.add('line-clamp-2');
@@ -67,7 +79,14 @@ function createTechCard(tech) {
     descElement.classList.add('line-clamp-2');
     descElement.textContent = description;
 
-    descElement.addEventListener('click', (e) => {
+    // Make entire card clickable, but preserve link clicks
+    const cardElement = card.querySelector('.card');
+    cardElement.style.cursor = 'pointer';
+    cardElement.addEventListener('click', (e) => {
+      // Don't toggle if clicking on a link
+      if (e.target.tagName === 'A' || e.target.closest('a')) {
+        return;
+      }
       e.preventDefault();
       e.stopPropagation();
       isExpanded = !isExpanded;
@@ -75,26 +94,22 @@ function createTechCard(tech) {
     });
   }
 
-  // Set matched texts if available
+  // Set matched texts if available, but keep hidden by default
   if (matchedTexts && matchedTexts.length > 0) {
-    matchedTextsElement.style.display = 'block';
+    // Populate the content but keep hidden initially
     matchedTextsListElement.innerHTML = matchedTexts
       .map(text => {
         // Escape HTML to prevent XSS
         const escapedText = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        return `<div class="text-[10px] text-base-content/60 bg-base-300 px-2 py-1 rounded font-mono break-all">${escapedText}</div>`;
+        return `<div class="matched-text-item text-[10px] text-base-content/60 bg-base-300 px-2 py-1 rounded font-mono">${escapedText}</div>`;
       })
       .join('');
   }
+  // Always start with matched texts hidden
+  matchedTextsElement.style.display = 'none';
 
-  // Set tags if available
-  if (tags.length > 0) {
-    tagsElement.style.display = 'flex';
-    const maxTags = window.innerWidth > 400 ? 4 : 3;
-    tagsElement.innerHTML = tags.slice(0, maxTags)
-      .map(tag => `<span class="badge badge-xs badge-outline">${tag}</span>`)
-      .join('');
-  }
+  // Tags are now displayed inline with the title, so hide the separate tags element
+  tagsElement.style.display = 'none';
 
   return card;
 }
@@ -386,7 +401,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 function requestDump() {
-  chrome.runtime.sendMessage({ action: 'getTabDetections' }, (response) => {
+  if (!currentTabId) {
+    dumpArea.textContent = 'No tab ID available.';
+    return;
+  }
+  
+  chrome.runtime.sendMessage({ action: 'getTabDetections', tabId: currentTabId }, (response) => {
     if (response && response.entry) {
       renderDump(response.entry);
     } else if (response && response.error) {
@@ -397,10 +417,6 @@ function requestDump() {
   });
 }
 
-dumpBtn.addEventListener('click', requestDump);
-
-// Request dump on open so the panel shows current state
-requestDump();
 
 // Request the detected technologies when the side panel is opened
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -412,6 +428,9 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   
   // Show target URL immediately
   renderTargetUrl();
+  
+  // Request dump now that we have the tab ID
+  requestDump();
   
   // Show reload suggestion initially (will be hidden if content script responds)
   showReloadSuggestion();

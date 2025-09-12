@@ -6,15 +6,11 @@
   <title>Web Stack Spy</title>
   <link href="output.css" rel="stylesheet" type="text/css" />
   <link href="sidepanel.css" rel="stylesheet">
-  <!-- Temporarily commented out to debug content script loading issue
-  <script src="daisyui.js"></script>
-  <script src="daisyui-theme.js"></script>
-  -->
+  <script src="tailwindcss.min.js"></script>
 </head>
 <body class="h-screen flex flex-col">
-  <header class="flex-shrink-0 p-4 border-b border-base-300">
-    <h1 class="text-2xl font-bold">webstackspy</h1>
-    <h2 class="text-lg font-semibold mt-2">Detected Technologies</h2>
+  <header class="flex-shrink-0 p-2">
+    <h1 class="text-2xl font-bold">Web Stack Spy</h1>
   </header>
   
   <main class="flex-1 overflow-y-auto m-1 p-1">
@@ -38,7 +34,7 @@
   </main>
   
   <footer class="flex-shrink-0 p-2 border-t border-base-300">
-    <button id="dump-btn" class="btn btn-sm">Dump tabDetections</button>
+    <div class="text-sm font-semibold text-base-content/70">tabDetections Dump</div>
     <pre id="dump-area" class="mt-2 bg-base-300 p-2 rounded w-full overflow-auto text-xs" style="max-height:150px;"></pre>
   </footer>
 
@@ -47,12 +43,12 @@
     <div class="card card-bordered tech-card bg-neutral text-primary-content shadow-sm">
       <div class="card-body p-1">
         <h3 class="card-title text-sm whitespace-nowrap overflow-hidden text-ellipsis" data-title></h3>
-        <p class="text-xs sm:text-sm text-base-content/80 line-clamp-2 cursor-pointer hover:text-base-content transition-colors" 
+        <p class="text-xs sm:text-sm text-base-content/80 line-clamp-2" 
            data-description 
            title="Click to expand/collapse" 
            style="display: none;"></p>
         <div class="mt-2" data-matched-texts style="display: none;">
-          <div class="text-[10px] text-base-content/60 mb-1">Matched text:</div>
+          <div class="text-[10px] text-base-content/60 mb-1">Matches:</div>
           <div class="space-y-1" data-matched-texts-list></div>
         </div>
         <div class="flex flex-wrap gap-1 mt-2" data-tags style="display: none;"></div>
