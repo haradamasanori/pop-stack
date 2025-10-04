@@ -219,6 +219,8 @@ function showReloadSuggestion() {
   if (reloadSuggestion) {
     reloadSuggestion.style.display = 'block';
   }
+  // Hide analyzed URLs section when showing reload suggestion
+  document.getElementById('analyzed-urls-section').style.display = 'none';
 }
 
 function hideReloadSuggestion() {
@@ -226,6 +228,8 @@ function hideReloadSuggestion() {
   if (reloadSuggestion) {
     reloadSuggestion.style.display = 'none';
   }
+  // Show analyzed URLs section again if there are URLs to show
+  renderUnifiedUrls();
 }
 
 
@@ -362,6 +366,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 
+
+// Add reload button functionality
+document.addEventListener('DOMContentLoaded', () => {
+  const reloadButton = document.getElementById('reload-button');
+  if (reloadButton) {
+    reloadButton.addEventListener('click', () => {
+      if (currentTabId) {
+        chrome.tabs.reload(currentTabId);
+      }
+    });
+  }
+});
 
 // Request the detected technologies when the side panel is opened
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {

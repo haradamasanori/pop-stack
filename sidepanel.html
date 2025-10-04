@@ -15,10 +15,13 @@
   
   <main class="flex-1 overflow-y-auto m-1 p-1">
     <!-- Reload suggestion message -->
-    <div id="reload-suggestion" class="mb-3 p-2 bg-warning/20 border border-warning/40 rounded text-xs text-warning-content/80" style="display: none;">
-      💡 For complete analysis including HTTP headers, consider reloading the page after opening this extension.
+    <div id="reload-suggestion" role="alert" class="alert alert-warning mb-4" style="display: none;">
+      <div>
+        <span>Please reload the page to analyze the technologies used.</span>
+        <button id="reload-button" class="btn btn-sm btn-primary ml-4">⟳ Reload</button>
+      </div>
     </div>
-    
+  
     <!-- Analyzed URLs section -->
     <div id="analyzed-urls-section" class="mb-3">
       <h3 class="text-sm font-semibold text-base-content/80 mb-2">Analyzed URLs</h3>
