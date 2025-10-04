@@ -150,15 +150,15 @@ function renderUnifiedUrls() {
         
         // Format component counts - only show counts that exist
         const countParts = [];
-        if (counts.ip !== undefined) countParts.push(`ip(${counts.ip})`);
-        if (counts.http !== undefined) countParts.push(`http(${counts.http})`);
-        if (counts.html !== undefined) countParts.push(`html(${counts.html})`);
+        if (counts.ip !== undefined) countParts.push(`IP ${counts.ip}`);
+        if (counts.http !== undefined) countParts.push(`HTTP ${counts.http}`);
+        if (counts.html !== undefined) countParts.push(`HTML ${counts.html}`);
         const countsText = countParts.join(', ');
         
         return `
-          <div class="mb-2">
-            <div class="text-xs text-base-content/70 truncate max-w-full" title="${url}">${truncatedUrl}</div>
-            <div class="text-[10px] text-base-content/50 mt-1 pl-2">${countsText}</div>
+          <div class="mb-2 flex justify-between items-center">
+            <div class="text-xs text-base-content/70 truncate flex-1 mr-2" title="${url}">${truncatedUrl}</div>
+            <div class="text-[10px] text-base-content/50 flex-shrink-0">${countsText}</div>
           </div>
         `;
       })
