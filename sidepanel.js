@@ -1,5 +1,4 @@
 const techList = document.getElementById('tech-list');
-const dumpArea = document.getElementById('dump-area');
 
 // Maintain current state so we can render a merged view
 let currentTechs = [];
@@ -254,15 +253,6 @@ function renderCombinedList() {
 
 
 
-function renderDump(entry) {
-  if (!entry) {
-    dumpArea.textContent = 'No data.';
-    return;
-  }
-  // Show only the detectionsByUrl data structure
-  const detectionsByUrl = entry.detectionsByUrl || {};
-  dumpArea.textContent = JSON.stringify(detectionsByUrl, null, 2);
-}
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('onMessage received', { message, sender });
@@ -279,10 +269,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.action === 'updateDetectionsByUrl') {
     console.log('🔧 updateDetectionsByUrl received', { detectionsByUrl: message.detectionsByUrl });
     
-    // Update the dump area with the received detectionsByUrl
-    if (message.detectionsByUrl) {
-      dumpArea.textContent = JSON.stringify(message.detectionsByUrl, null, 2);
-    }
     
     if (message.detectionsByUrl) {
       // Store the detectionsByUrl for the current URL
@@ -372,19 +358,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     
     renderUnifiedUrls();
     showReloadSuggestion();
-    requestDump();
   }
 });
 
-function requestDump() {
-  if (!currentTabId) {
-    dumpArea.textContent = 'No tab ID available.';
-    return;
-  }
-  
-  // Request detectionsByUrl (will trigger updateDetectionsByUrl message which updates dump area)
-  chrome.runtime.sendMessage({ action: 'getDetectionsByUrl', tabId: currentTabId });
-}
 
 
 // Request the detected technologies when the side panel is opened
@@ -398,8 +374,6 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   // Show target URL immediately
   renderTargetUrl();
   
-  // Request dump now that we have the tab ID
-  requestDump();
   
   // Show reload suggestion initially (will be hidden if content script responds)
   showReloadSuggestion();
