@@ -9,6 +9,33 @@ let currentTabUrl = null;
 let currentDetectionsByUrl = {}; // Store detectionsByUrl for current URL
 let hasContentScriptResponded = false;
 
+function createUrlItem(url, counts) {
+  // Clone the template
+  const template = document.getElementById('url-item-template');
+  const item = template.content.cloneNode(true);
+
+  // Get elements
+  const urlElement = item.querySelector('[data-url]');
+  const countsElement = item.querySelector('[data-counts]');
+
+  // Truncate long URLs with ellipsis in the middle to preserve domain and path
+  const truncatedUrl = truncateUrl(url, 60);
+
+  // Format component counts - only show counts that exist
+  const countParts = [];
+  if (counts.ip !== undefined) countParts.push(`IP ${counts.ip}`);
+  if (counts.http !== undefined) countParts.push(`HTTP ${counts.http}`);
+  if (counts.html !== undefined) countParts.push(`HTML ${counts.html}`);
+  const countsText = countParts.join(', ');
+
+  // Set content
+  urlElement.textContent = truncatedUrl;
+  urlElement.title = url;
+  countsElement.textContent = countsText;
+
+  return item;
+}
+
 function createTechCard(tech) {
   const isRichObject = typeof tech === 'object' && tech.name;
   const name = isRichObject ? tech.name : tech;
@@ -143,26 +170,14 @@ function renderUnifiedUrls() {
   }
   
   if (urlMap.size > 0) {
-    urlsList.innerHTML = Array.from(urlMap.entries())
-      .map(([url, counts]) => {
-        // Truncate long URLs with ellipsis in the middle to preserve domain and path
-        const truncatedUrl = truncateUrl(url, 60);
-        
-        // Format component counts - only show counts that exist
-        const countParts = [];
-        if (counts.ip !== undefined) countParts.push(`IP ${counts.ip}`);
-        if (counts.http !== undefined) countParts.push(`HTTP ${counts.http}`);
-        if (counts.html !== undefined) countParts.push(`HTML ${counts.html}`);
-        const countsText = countParts.join(', ');
-        
-        return `
-          <div class="mb-2 flex justify-between items-center">
-            <div class="text-xs text-base-content/70 truncate flex-1 mr-2" title="${url}">${truncatedUrl}</div>
-            <div class="text-[10px] text-base-content/50 flex-shrink-0">${countsText}</div>
-          </div>
-        `;
-      })
-      .join('');
+    // Clear existing content
+    urlsList.innerHTML = '';
+
+    // Create and append URL items using template
+    Array.from(urlMap.entries()).forEach(([url, counts]) => {
+      const urlItem = createUrlItem(url, counts);
+      urlsList.appendChild(urlItem);
+    });
     document.getElementById('analyzed-urls-section').style.display = 'block';
   } else {
     document.getElementById('analyzed-urls-section').style.display = 'none';
