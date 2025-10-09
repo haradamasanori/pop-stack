@@ -84,22 +84,19 @@ main {
   min-height: 0; /* Allow flex item to shrink below content size */
 }
 
-/* Responsive text sizing */
-@media (min-width: 400px) {
-  .card-title {
-    font-size: 1rem;
-  }
+/* Fixed text sizing - consistent regardless of width */
+.card-title {
+  font-size: 1rem;
 }
 
-/* Tag badges responsive sizing */
+/* Tag badges styling */
 .badge {
-  font-size: 0.7rem;
-}
-
-@media (min-width: 400px) {
-  .badge {
-    font-size: 0.75rem;
-  }
+  font-size: 0.75rem;
+  line-height: 1.2;
+  padding: 0.25rem 0.5rem;
+  min-height: 1.1rem;
+  display: inline-flex;
+  align-items: center;
 }
 
 /* URL list styling - prevent horizontal scrollbars */
@@ -126,9 +123,22 @@ main {
   hyphens: auto !important;
 }
 
-/* Card hover effect to indicate clickability */
-.tech-card:hover {
-  transform: scale(1.02);
-  transition: transform 0.2s ease-in-out;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+/* Card expanded effect */
+.tech-card.expanded {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
+
+.tech-card {
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+
+.tech-card:hover {
+  border: 1px solid;
+  border-color: hsl(var(--p));
+}
+
+/* Expand/collapse icon transition */
+[data-expand-icon] {
+  transition: transform 0.2s ease-in-out;
+}
+

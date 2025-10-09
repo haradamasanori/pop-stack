@@ -1,16 +1,25 @@
 <!DOCTYPE html>
-<html data-theme="dark">
+<html data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Web Stack Spy</title>
   <link href="output.css" rel="stylesheet" type="text/css" />
+  <link href="daisyui.min.css" rel="stylesheet" type="text/css" />
   <link href="sidepanel.css" rel="stylesheet">
   <script src="tailwindcss.min.js"></script>
 </head>
-<body class="h-screen flex flex-col">
-  <header class="flex-shrink-0 p-2">
+<body class="h-screen flex flex-col bg-base-300">
+  <header class="flex-shrink-0 p-2 flex justify-between items-center">
     <h1 class="text-2xl font-bold">Web Stack Spy</h1>
+    <button id="theme-toggle" class="btn btn-ghost btn-sm btn-circle" title="Toggle theme">
+      <svg id="theme-icon-light" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+      </svg>
+      <svg id="theme-icon-dark" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: none;">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+      </svg>
+    </button>
   </header>
   
   <main class="flex-1 overflow-y-auto m-1 p-1">
@@ -24,7 +33,7 @@
   
     <!-- Analyzed URLs section -->
     <div id="analyzed-urls-section" class="mb-3">
-      <h3 class="text-sm font-semibold text-base-content/80 mb-2">Analyzed URLs</h3>
+      <h3 class="text-sm font-semibold text-base-content mb-2">Analyzed URLs</h3>
       <div id="analyzed-urls-list" class="bg-base-200 rounded p-2 max-h-32 overflow-y-auto space-y-1 overflow-x-hidden">
         <!-- Analyzed URLs will be listed here -->
       </div>
@@ -39,15 +48,25 @@
 
   <!-- Tech card template -->
   <template id="tech-card-template">
-    <div class="card card-bordered tech-card bg-neutral text-primary-content shadow-sm">
-      <div class="card-body p-1">
-        <h3 class="card-title text-sm whitespace-nowrap overflow-hidden text-ellipsis" data-title></h3>
-        <div class="mt-2" data-matched-texts style="display: none;">
-          <div class="space-y-1" data-matched-texts-list></div>
+    <div class="card card-bordered tech-card bg-base-100 text-base-content shadow-sm cursor-pointer p-1">
+      <div class="card-body relative">
+        <div class="absolute top-2 right-2 text-base-content/40" data-expand-icon>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+          </svg>
         </div>
-        <p class="text-xs sm:text-sm text-base-content/80 mt-2"
+        <h3 class="card-title text-sm whitespace-nowrap overflow-hidden text-ellipsis pr-6" data-title></h3>
+        <div class="" data-matched-texts-collapsed style="display: none;">
+          <div class="space-y-1" data-matched-texts-list-collapsed></div>
+        </div>
+        <p class="text-xs text-base-content mt-2 overflow-hidden text-ellipsis whitespace-nowrap"
+           data-description-preview
+           style="display: none;"></p>
+        <div class="" data-matched-texts-expanded style="display: none;">
+          <div class="space-y-1" data-matched-texts-list-expanded></div>
+        </div>
+        <p class="text-xs text-base-content mt-2"
            data-description
-           title="Click to expand/collapse"
            style="display: none;"></p>
         <div class="flex flex-wrap gap-1 mt-2" data-tags style="display: none;"></div>
       </div>
@@ -57,8 +76,8 @@
   <!-- URL item template -->
   <template id="url-item-template">
     <div class="mb-2 flex justify-between items-center">
-      <div class="text-xs text-base-content/70 truncate flex-1 mr-2" data-url data-title></div>
-      <div class="text-[10px] text-base-content/50 flex-shrink-0" data-counts></div>
+      <div class="text-xs text-base-content/80 truncate flex-1 mr-2" data-url data-title></div>
+      <div class="text-[10px] text-base-content/80 flex-shrink-0" data-counts></div>
     </div>
   </template>
 

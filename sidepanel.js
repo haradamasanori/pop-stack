@@ -52,105 +52,111 @@ function createTechCard(tech) {
   // Get elements
   const titleElement = card.querySelector('[data-title]');
   const descElement = card.querySelector('[data-description]');
-  const matchedTextsElement = card.querySelector('[data-matched-texts]');
-  const matchedTextsListElement = card.querySelector('[data-matched-texts-list]');
+  const descPreviewElement = card.querySelector('[data-description-preview]');
+  const matchedTextsCollapsedElement = card.querySelector('[data-matched-texts-collapsed]');
+  const matchedTextsListCollapsedElement = card.querySelector('[data-matched-texts-list-collapsed]');
+  const matchedTextsExpandedElement = card.querySelector('[data-matched-texts-expanded]');
+  const matchedTextsListExpandedElement = card.querySelector('[data-matched-texts-list-expanded]');
   const tagsElement = card.querySelector('[data-tags]');
+  const cardElement = card.querySelector('.card');
+  const expandIconElement = card.querySelector('[data-expand-icon]');
+
+  // Track expansion state
+  let isExpanded = false;
 
   // Set title with optional link, developer info, and tags in a single inline span
   const maxTags = window.innerWidth > 400 ? 4 : 3;
-  const tagsBadges = tags.length > 0 
+  const tagsBadges = tags.length > 0
     ? ` ${tags.slice(0, maxTags)
         .map(tag => `<span class="badge badge-xs badge-outline ml-1">${tag}</span>`)
         .join('')}`
     : '';
-    
-  const titleContent = link
-    ? `<a href="${link}" target="_blank" class="link link-primary">${name}</a>${developer 
-      ? ` <span class="text-[10px] text-base-content/50 font-normal">by ${developer}</span>` : ''}${tagsBadges}`
-    : `${name}${developer ? ` <span class="text-sm text-base-content/50 font-normal">by ${developer}</span>` : ''}${tagsBadges}`;
+
+  const titleContent = link ?
+    `<a href="${link}" target="_blank" class="link link-primary">${name}</a>${developer
+      ? ` <span class="text-[10px] text-base-content/80 font-normal">by ${developer}</span>` : ''}${tagsBadges}` :
+    `${name}${developer ? ` <span class="text-sm text-base-content/80 font-normal">by ${developer}</span>` : ''}${tagsBadges}`;
 
   titleElement.innerHTML = `<span class="inline">${titleContent}</span>`;
 
-  // Function to render matches based on expansion state
-  const renderMatches = (expanded) => {
-    if (!matchedTexts || matchedTexts.length === 0) return;
+  // Set matched texts content
+  if (matchedTexts && matchedTexts.length > 0) {
+    // Collapsed view - show only first match
+    matchedTextsCollapsedElement.style.display = 'block';
+    const firstMatch = matchedTexts[0];
+    const escapedText = firstMatch.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    matchedTextsListCollapsedElement.innerHTML = `<div class="matched-text-item text-xs text-base-content font-mono overflow-hidden text-ellipsis whitespace-nowrap">${escapedText}</div>`;
 
-    const textsToShow = expanded ? matchedTexts : matchedTexts.slice(0, 1);
-    matchedTextsListElement.innerHTML = textsToShow
+    if (matchedTexts.length > 1) {
+      matchedTextsListCollapsedElement.innerHTML += `<div class="text-xs text-base-content/50 italic">+${matchedTexts.length - 1} more...</div>`;
+    }
+
+    // Expanded view - show all matches
+    matchedTextsListExpandedElement.innerHTML = matchedTexts
       .map(text => {
-        // Escape HTML to prevent XSS
         const escapedText = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        return `<div class="matched-text-item text-[10px] text-base-content/60 bg-base-300 px-2 py-1 rounded font-mono">${escapedText}</div>`;
+        return `<div class="matched-text-item text-xs text-base-content font-mono">${escapedText}</div>`;
       })
       .join('');
+  }
 
-    // Add indicator if there are more matches when collapsed
-    if (!expanded && matchedTexts.length > 1) {
-      matchedTextsListElement.innerHTML += `<div class="text-[10px] text-base-content/40 italic">+${matchedTexts.length - 1} more...</div>`;
+  // Set description content
+  if (description) {
+    // Show preview in collapsed view (first line with ellipsis)
+    descPreviewElement.style.display = 'block';
+    const firstLine = description.split('\n')[0];
+    descPreviewElement.textContent = firstLine;
+
+    // Show full description in expanded view
+    descElement.textContent = description;
+    descElement.style.whiteSpace = 'pre-wrap';
+  }
+
+  // Toggle function
+  const updateCardState = () => {
+    if (isExpanded) {
+      // Show expanded content
+      matchedTextsCollapsedElement.style.display = 'none';
+      descPreviewElement.style.display = 'none';
+      matchedTextsExpandedElement.style.display = matchedTexts && matchedTexts.length > 0 ? 'block' : 'none';
+      descElement.style.display = description ? 'block' : 'none';
+      // Add expanded styling
+      cardElement.classList.add('expanded');
+      // Rotate icon to point up
+      expandIconElement.style.transform = 'rotate(180deg)';
+    } else {
+      // Show collapsed content
+      matchedTextsCollapsedElement.style.display = matchedTexts && matchedTexts.length > 0 ? 'block' : 'none';
+      descPreviewElement.style.display = description ? 'block' : 'none';
+      matchedTextsExpandedElement.style.display = 'none';
+      descElement.style.display = 'none';
+      // Remove expanded styling
+      cardElement.classList.remove('expanded');
+      // Rotate icon to point down
+      expandIconElement.style.transform = 'rotate(0deg)';
     }
   };
 
-  // Set matched texts if available - now shown first
-  if (matchedTexts && matchedTexts.length > 0) {
-    matchedTextsElement.style.display = 'block';
-    // Initially show only one match
-    renderMatches(false);
-  }
+  // Initialize collapsed state
+  updateCardState();
 
-  // Set description if available - now shown after matches with collapsible behavior
-  if (description) {
-    descElement.style.display = 'block';
-
-    // Store original description and setup toggle
-    let isExpanded = false;
-
-    // Split description into lines to get first line
-    const lines = description.split('\n');
-    const firstLine = lines[0];
-    const hasMoreLines = lines.length > 1;
-
-    const updateDescription = () => {
-      if (isExpanded) {
-        descElement.textContent = description;
-        descElement.style.whiteSpace = 'pre-wrap';
-        descElement.classList.remove('line-clamp-1');
-        // Show all matches when expanded
-        if (matchedTexts && matchedTexts.length > 0) {
-          renderMatches(true);
-        }
-      } else {
-        descElement.textContent = firstLine + (hasMoreLines ? '...' : '');
-        descElement.style.whiteSpace = 'nowrap';
-        descElement.classList.add('line-clamp-1');
-        // Show only one match when collapsed
-        if (matchedTexts && matchedTexts.length > 0) {
-          renderMatches(false);
-        }
-      }
-    };
-
-    // Initialize with first line only
-    updateDescription();
-
-    // Make entire card clickable for expansion, but preserve link clicks
-    const cardElement = card.querySelector('.card');
-    cardElement.style.cursor = 'pointer';
-    cardElement.addEventListener('click', (e) => {
-      // Don't toggle if clicking on a link
-      if (e.target.tagName === 'A' || e.target.closest('a')) {
-        return;
-      }
-      e.preventDefault();
+  // Handle link clicks to prevent toggle
+  const links = card.querySelectorAll('a');
+  links.forEach(link => {
+    link.addEventListener('click', (e) => {
       e.stopPropagation();
-      isExpanded = !isExpanded;
-      updateDescription();
     });
-  }
+  });
 
-  // If no matched texts, hide the section
-  if (!matchedTexts || matchedTexts.length === 0) {
-    matchedTextsElement.style.display = 'none';
-  }
+  // Make entire card clickable
+  cardElement.addEventListener('click', (e) => {
+    // Don't toggle if clicking on a link
+    if (e.target.tagName === 'A' || e.target.closest('a')) {
+      return;
+    }
+    isExpanded = !isExpanded;
+    updateCardState();
+  });
 
   // Tags are now displayed inline with the title, so hide the separate tags element
   tagsElement.style.display = 'none';
@@ -279,7 +285,7 @@ function renderCombinedList() {
     });
   } else {
     const emptyState = document.createElement('div');
-    emptyState.className = 'text-center text-base-content/60 py-8';
+    emptyState.className = 'text-center text-base-content/70 py-8';
     emptyState.innerHTML = '<p>No technologies detected.</p>';
     techList.appendChild(emptyState);
   }
@@ -399,8 +405,47 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 
 
-// Add reload button functionality
+// Theme management functions
+function initializeTheme() {
+  const savedTheme = localStorage.getItem('web-stack-spy-theme') || 'light';
+  setTheme(savedTheme);
+}
+
+function setTheme(theme) {
+  const htmlElement = document.documentElement;
+  const lightIcon = document.getElementById('theme-icon-light');
+  const darkIcon = document.getElementById('theme-icon-dark');
+
+  htmlElement.setAttribute('data-theme', theme);
+  localStorage.setItem('web-stack-spy-theme', theme);
+
+  if (theme === 'dark') {
+    lightIcon.style.display = 'none';
+    darkIcon.style.display = 'block';
+  } else {
+    lightIcon.style.display = 'block';
+    darkIcon.style.display = 'none';
+  }
+}
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute('data-theme');
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  setTheme(newTheme);
+}
+
+// Add reload button and theme toggle functionality
 document.addEventListener('DOMContentLoaded', () => {
+  // Initialize theme
+  initializeTheme();
+
+  // Theme toggle button
+  const themeToggle = document.getElementById('theme-toggle');
+  if (themeToggle) {
+    themeToggle.addEventListener('click', toggleTheme);
+  }
+
+  // Reload button
   const reloadButton = document.getElementById('reload-button');
   if (reloadButton) {
     reloadButton.addEventListener('click', () => {
