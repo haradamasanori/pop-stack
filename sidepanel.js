@@ -71,42 +71,68 @@ function createTechCard(tech) {
 
   titleElement.innerHTML = `<span class="inline">${titleContent}</span>`;
 
-  // Set description if available
+  // Function to render matches based on expansion state
+  const renderMatches = (expanded) => {
+    if (!matchedTexts || matchedTexts.length === 0) return;
+
+    const textsToShow = expanded ? matchedTexts : matchedTexts.slice(0, 1);
+    matchedTextsListElement.innerHTML = textsToShow
+      .map(text => {
+        // Escape HTML to prevent XSS
+        const escapedText = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return `<div class="matched-text-item text-[10px] text-base-content/60 bg-base-300 px-2 py-1 rounded font-mono">${escapedText}</div>`;
+      })
+      .join('');
+
+    // Add indicator if there are more matches when collapsed
+    if (!expanded && matchedTexts.length > 1) {
+      matchedTextsListElement.innerHTML += `<div class="text-[10px] text-base-content/40 italic">+${matchedTexts.length - 1} more...</div>`;
+    }
+  };
+
+  // Set matched texts if available - now shown first
+  if (matchedTexts && matchedTexts.length > 0) {
+    matchedTextsElement.style.display = 'block';
+    // Initially show only one match
+    renderMatches(false);
+  }
+
+  // Set description if available - now shown after matches with collapsible behavior
   if (description) {
     descElement.style.display = 'block';
 
     // Store original description and setup toggle
     let isExpanded = false;
 
+    // Split description into lines to get first line
+    const lines = description.split('\n');
+    const firstLine = lines[0];
+    const hasMoreLines = lines.length > 1;
+
     const updateDescription = () => {
       if (isExpanded) {
-        descElement.classList.remove('line-clamp-2');
-        descElement.classList.add('expanded-description');
-        descElement.textContent = description + ' (click to collapse)';
-        // Show matched texts when expanded
+        descElement.textContent = description;
+        descElement.style.whiteSpace = 'pre-wrap';
+        descElement.classList.remove('line-clamp-1');
+        // Show all matches when expanded
         if (matchedTexts && matchedTexts.length > 0) {
-          matchedTextsElement.style.display = 'block';
+          renderMatches(true);
         }
       } else {
-        // Add collapse animation before switching to clamped state
-        descElement.style.animation = 'collapseText 0.3s ease-in';
-        // Hide matched texts immediately when collapsing
-        matchedTextsElement.style.display = 'none';
-        setTimeout(() => {
-          descElement.classList.remove('expanded-description');
-          descElement.classList.add('line-clamp-2');
-          descElement.textContent = description;
-          descElement.style.animation = '';
-        }, 300);
+        descElement.textContent = firstLine + (hasMoreLines ? '...' : '');
+        descElement.style.whiteSpace = 'nowrap';
+        descElement.classList.add('line-clamp-1');
+        // Show only one match when collapsed
+        if (matchedTexts && matchedTexts.length > 0) {
+          renderMatches(false);
+        }
       }
     };
 
-    // Ensure we start with the right classes
-    descElement.classList.remove('expanded-description');
-    descElement.classList.add('line-clamp-2');
-    descElement.textContent = description;
+    // Initialize with first line only
+    updateDescription();
 
-    // Make entire card clickable, but preserve link clicks
+    // Make entire card clickable for expansion, but preserve link clicks
     const cardElement = card.querySelector('.card');
     cardElement.style.cursor = 'pointer';
     cardElement.addEventListener('click', (e) => {
@@ -121,19 +147,10 @@ function createTechCard(tech) {
     });
   }
 
-  // Set matched texts if available, but keep hidden by default
-  if (matchedTexts && matchedTexts.length > 0) {
-    // Populate the content but keep hidden initially
-    matchedTextsListElement.innerHTML = matchedTexts
-      .map(text => {
-        // Escape HTML to prevent XSS
-        const escapedText = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        return `<div class="matched-text-item text-[10px] text-base-content/60 bg-base-300 px-2 py-1 rounded font-mono">${escapedText}</div>`;
-      })
-      .join('');
+  // If no matched texts, hide the section
+  if (!matchedTexts || matchedTexts.length === 0) {
+    matchedTextsElement.style.display = 'none';
   }
-  // Always start with matched texts hidden
-  matchedTextsElement.style.display = 'none';
 
   // Tags are now displayed inline with the title, so hide the separate tags element
   tagsElement.style.display = 'none';
