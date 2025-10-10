@@ -1,12 +1,72 @@
 
 // Keep a per-tab store of detected technologies
-// entry shape: { url: string|null, detectionsByUrl: Map<string, {headerComponents: [], htmlComponents: [], ipComponents: []}> }
+// entry shape: {
+//   url: string|null,
+//   detectionsByUrl: Map<string, {headerComponents: [], htmlComponents: [], ipComponents: []}>,
+//   recentDetections: Array<{url: string, detectionsByUrl: Map<string, object>}> // last 5 pages cache
+// }
 const tabDetections = new Map(); // tabId -> entry
 // Track which tabs currently have a listening side panel instance
 const readyPanels = new Set();
 // Cache for configuration
 let techConfig = null;
 let ipRangeConfigs = null;
+
+// Helper functions for recent detections cache
+function cacheCurrentDetections(tabId, url) {
+  if (!url) return;
+
+  const entry = tabDetections.get(tabId);
+  if (!entry || !entry.detectionsByUrl || entry.detectionsByUrl.size === 0) return;
+
+  // Initialize recentDetections array if it doesn't exist
+  if (!entry.recentDetections) {
+    entry.recentDetections = [];
+  }
+
+  // Clone the current detectionsByUrl Map for caching
+  const clonedDetections = new Map();
+  for (const [detectionUrl, detection] of entry.detectionsByUrl) {
+    clonedDetections.set(detectionUrl, { ...detection });
+  }
+
+  // Remove existing entry for this URL if it exists
+  entry.recentDetections = entry.recentDetections.filter(item => item.url !== url);
+
+  // Add new entry at the beginning
+  entry.recentDetections.unshift({
+    url: url,
+    detectionsByUrl: clonedDetections,
+    timestamp: Date.now()
+  });
+
+  // Keep only the last 5 entries
+  entry.recentDetections = entry.recentDetections.slice(0, 5);
+
+  console.log(`📂 Cached detections for ${url}, total cached: ${entry.recentDetections.length}`);
+}
+
+function getCachedDetections(tabId, url) {
+  if (!url) return null;
+
+  const entry = tabDetections.get(tabId);
+  if (!entry || !entry.recentDetections) return null;
+
+  const cached = entry.recentDetections.find(item => item.url === url);
+  if (cached) {
+    console.log(`🔍 Found cached detections for ${url}, age: ${Date.now() - cached.timestamp}ms`);
+
+    // Clone the cached detectionsByUrl Map
+    const clonedDetections = new Map();
+    for (const [detectionUrl, detection] of cached.detectionsByUrl) {
+      clonedDetections.set(detectionUrl, { ...detection });
+    }
+
+    return clonedDetections;
+  }
+
+  return null;
+}
 
 // This function enables or disables the action button and side panel
 // based on the tab's URL.
@@ -276,7 +336,7 @@ async function detectTechnologiesFromIP(tabId, url, hostname, ipAddress) {
   
   let entry = tabDetections.get(tabId);
   if (!entry) {
-    entry = { detectionsByUrl: new Map() };
+    entry = { detectionsByUrl: new Map(), recentDetections: [] };
     tabDetections.set(tabId, entry);
   }
   
@@ -444,7 +504,7 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
   
   let entry = tabDetections.get(tabId);
   if (!entry) {
-    entry = { detectionsByUrl: new Map() };
+    entry = { detectionsByUrl: new Map(), recentDetections: [] };
     tabDetections.set(tabId, entry);
   }
   
@@ -692,69 +752,57 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   updateActionAndSidePanel(tabId);
 
   const panelReady = readyPanels.has(tabId);
-  // Clear stored detections when navigation starts so we don't show stale headers
+  // Clear all detections when navigation starts and handle caching
   if (info.status === 'loading') {
-    // On navigation start, clear cached content-script technologies so the
-    // UI can be refreshed. Additionally, if this tab is enabled and the
-    // navigation changes origin, clear previous header detections so new
-    // server headers can populate.
     let entry = tabDetections.get(tabId);
     if (entry) {
-      // Clear HTML detections for all URLs on navigation start
-      for (const [url, detection] of entry.detectionsByUrl) {
-        if (detection.htmlComponents) {
-          delete detection.htmlComponents;
-        }
+      const newUrl = (tab && tab.url) ? tab.url : (info.url || null);
+
+      // If URL is changing, cache current detections before clearing
+      if (entry.url && newUrl && entry.url !== newUrl) {
+        console.log('🔄 URL changing during loading, caching current detections', {
+          from: entry.url,
+          to: newUrl
+        });
+        cacheCurrentDetections(tabId, entry.url);
       }
-      // Send updated tech list immediately after clearing HTML components
-      // so header components remain visible during navigation
+
+      // Check if we have cached detections for the new URL
+      const cachedDetections = newUrl ? getCachedDetections(tabId, newUrl) : null;
+
+      if (cachedDetections) {
+        console.log('📦 Restored cached detections during loading for URL:', newUrl);
+        entry.detectionsByUrl = cachedDetections;
+      } else {
+        console.log('🧹 No cached detections, clearing all detection components during loading');
+        entry.detectionsByUrl.clear();
+      }
+
+      // Send updated tech list if panel is ready
       if (panelReady) {
         const { allTechs, analyzedUrls } = getAllTechnologiesForTab(tabId);
-        console.log('🔧 Background sending updateDetectionsByUrl after clearing HTML components', { tabId, techCount: allTechs.length, urlCount: analyzedUrls.length });
+        console.log('🔧 Background sending updateDetectionsByUrl during loading', { tabId, techCount: allTechs.length, urlCount: analyzedUrls.length });
         const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
         chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl }, (res) => { });
-        // Also update the target URL
-        const newUrl = (tab && tab.url) ? tab.url : (info.url || null);
+
+        // Update target URL
         if (newUrl) {
-          console.log('🔗 Background sending updateTargetUrl', { tabId, newUrl });
+          console.log('🔗 Background sending updateTargetUrl during loading', { tabId, newUrl });
           chrome.runtime.sendMessage({ action: 'updateTargetUrl', tabId, url: newUrl }, (res) => { });
         }
-      }
-    }
-    const newVisibleUrl = (tab && tab.url) ? tab.url : (info.url || null);
-    if (panelReady && entry && entry.url && newVisibleUrl) {
-      try {
-        const prev = new URL(entry.url);
-        const next = new URL(newVisibleUrl);
-        if (prev.origin !== next.origin) {
-          // Clear all detections when origin changes
-          entry.detectionsByUrl.clear();
-          const { allTechs, analyzedUrls } = getAllTechnologiesForTab(tabId);
-          // Outer guard `panelReady` ensures readiness; send update directly
-          const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
-          chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl }, (res) => { });
-          chrome.runtime.sendMessage({ action: 'updateTargetUrl', tabId, url: newVisibleUrl }, (res) => { });
+      } else {
+        // Send clearTechs if panel is not ready
+        try {
+          console.log('🧹 Background sending clearTechs message for navigation loading (panel not ready)', { tabId, url: newUrl });
+          chrome.runtime.sendMessage({ action: 'clearTechs', tabId }, (res) => {
+            if (chrome.runtime.lastError) {
+              console.debug('clearTechs message had no receiver', chrome.runtime.lastError);
+            }
+          });
+        } catch (e) {
+          // ignore
         }
-      } catch (e) {
-        console.debug('URL parse failed while comparing origins', e);
       }
-    }
-
-    // Only send clearTechs if panel is NOT ready - if panel is ready, we already sent updated tech list above
-    if (!panelReady) {
-      try {
-        console.log('🧹 Background sending clearTechs message for navigation loading (panel not ready)', { tabId, url: (tab && tab.url) || info.url });
-        chrome.runtime.sendMessage({ action: 'clearTechs', tabId }, (res) => {
-          if (chrome.runtime.lastError) {
-            // Expected if no listener (side panel not open). Log at debug level.
-            console.debug('clearTechs message had no receiver', chrome.runtime.lastError);
-          }
-        });
-      } catch (e) {
-        // ignore
-      }
-    } else {
-      console.log('🧹 Skipping clearTechs message - panel is ready and already received updated tech list');
     }
   }
 
@@ -762,7 +810,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   if (tab && tab.url) {
     let entry = tabDetections.get(tabId);
     if (!entry) {
-      entry = { url: tab.url, detectionsByUrl: new Map() };
+      entry = { url: tab.url, detectionsByUrl: new Map(), recentDetections: [] };
       tabDetections.set(tabId, entry);
     } else {
       entry.url = tab.url;
@@ -770,26 +818,34 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   }
 
   if (info.status === 'complete' && tab.url) {
-    // If navigation completed, and this tab is enabled, update the URL and handle origin changes
+    // If navigation completed, and this tab is enabled, handle URL changes
     if (panelReady) {
       // Always update the target URL on navigation complete
       console.log('🔗 Sending updateTargetUrl on navigation complete', { tabId, url: tab.url });
       chrome.runtime.sendMessage({ action: 'updateTargetUrl', tabId, url: tab.url }, () => { });
-      
+
       const entry = tabDetections.get(tabId);
-      if (entry && entry.url) {
-        try {
-          const prev = new URL(entry.url);
-          const next = new URL(tab.url);
-          if (prev.origin !== next.origin) {
-            // Clear all detections for origin change on navigation completion
-            entry.detectionsByUrl.clear();
-            const { allTechs, analyzedUrls } = getAllTechnologiesForTab(tabId);
-            const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
-            chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl }, () => { });
-          }
-        } catch (e) {
-          console.debug('URL parse failed while comparing origins on complete', e);
+      if (entry && entry.url && entry.url !== tab.url) {
+        console.log('🔄 URL changed on navigation complete, caching and checking for cached data', {
+          from: entry.url,
+          to: tab.url
+        });
+
+        // Cache current detections before clearing
+        cacheCurrentDetections(tabId, entry.url);
+
+        // Check if we have cached detections for the new URL
+        const cachedDetections = getCachedDetections(tabId, tab.url);
+        if (cachedDetections) {
+          console.log('📦 Restored cached detections for URL:', tab.url);
+          entry.detectionsByUrl = cachedDetections;
+          const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
+          chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl }, () => { });
+        } else {
+          console.log('🧹 No cached detections, clearing for new URL:', tab.url);
+          entry.detectionsByUrl.clear();
+          const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
+          chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl }, () => { });
         }
       }
     }
@@ -855,7 +911,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (tabId && url) {
       let entry = tabDetections.get(tabId);
       if (!entry) {
-        entry = { detectionsByUrl: new Map() };
+        entry = { detectionsByUrl: new Map(), recentDetections: [] };
         tabDetections.set(tabId, entry);
       }
       
