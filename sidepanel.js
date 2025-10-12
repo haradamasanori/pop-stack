@@ -247,10 +247,6 @@ function truncateUrl(url, maxLength) {
   }
 }
 
-// Keep the old function for backward compatibility but make it call the new one
-function renderTargetUrl() {
-  renderUnifiedUrls();
-}
 
 function showReloadSuggestion() {
   const reloadSuggestion = document.getElementById('reload-suggestion');
@@ -322,14 +318,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return;
   }
   
-  if (message.action === 'updateTargetUrl') {
-    console.log('🔗 Updating target URL', { newUrl: message.url });
-    currentTabUrl = message.url;
-    renderTargetUrl();
-  } else if (message.action === 'updateDetectionsByUrl') {
-    console.log('🔧 updateDetectionsByUrl received', { detectionsByUrl: message.detectionsByUrl });
-    
-    
+  if (message.action === 'updateDetectionsByUrl') {
+    console.log('🔧 updateDetectionsByUrl received', { detectionsByUrl: message.detectionsByUrl, targetUrl: message.targetUrl });
+
+    // Update target URL if provided
+    if (message.targetUrl) {
+      console.log('🔗 Updating target URL from combined message', { newUrl: message.targetUrl });
+      currentTabUrl = message.targetUrl;
+    }
+
     if (message.detectionsByUrl) {
       // Store the detectionsByUrl for the current URL
       currentDetectionsByUrl = message.detectionsByUrl;

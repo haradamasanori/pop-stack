@@ -400,7 +400,7 @@ async function detectTechnologiesFromIP(tabId, url, hostname, ipAddress) {
     const entry = tabDetections.get(tabId);
     console.log('📨 Sending IP detection results to ready panel');
     const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
-    chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl }, (res) => { });
+    chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl, targetUrl: null }, (res) => { });
   } else {
     console.log('📦 IP detection results stored, panel not ready yet');
   }
@@ -496,7 +496,7 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
   if (readyPanels.has(tabId)) {
     console.log('📨 Sending header detection results to ready panel');
     const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
-    chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl }, (res) => { });
+    chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl, targetUrl: null }, (res) => { });
   } else {
     console.log('📦 Header detection results stored, panel not ready yet');
   }
@@ -716,13 +716,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
         const urlCount = entry.detectionsByUrl?.size || 0;
         console.log('🔧 Background sending updateDetectionsByUrl during loading', { tabId, urlCount });
         const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
-        chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl }, (res) => { });
-
-        // Update target URL
-        if (newUrl) {
-          console.log('🔗 Background sending updateTargetUrl during loading', { tabId, newUrl });
-          chrome.runtime.sendMessage({ action: 'updateTargetUrl', tabId, url: newUrl }, (res) => { });
-        }
+        chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl, targetUrl: newUrl }, (res) => { });
       } else {
         // Send clearTechs if panel is not ready
         try {
@@ -753,10 +747,6 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   if (info.status === 'complete' && tab.url) {
     // If navigation completed, and this tab is enabled, handle URL changes
     if (panelReady) {
-      // Always update the target URL on navigation complete
-      console.log('🔗 Sending updateTargetUrl on navigation complete', { tabId, url: tab.url });
-      chrome.runtime.sendMessage({ action: 'updateTargetUrl', tabId, url: tab.url }, () => { });
-
       const entry = tabDetections.get(tabId);
       if (entry && entry.url && entry.url !== tab.url) {
         console.log('🔄 URL changed on navigation complete, caching and checking for cached data', {
@@ -772,15 +762,16 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
         if (cachedDetections) {
           console.log('📦 Restored cached detections for URL:', tab.url);
           entry.detectionsByUrl = cachedDetections;
-          const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
-          chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl }, () => { });
         } else {
           console.log('🧹 No cached detections, clearing for new URL:', tab.url);
           entry.detectionsByUrl.clear();
-          const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
-          chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl }, () => { });
         }
       }
+
+      // Always send combined update with target URL on navigation complete
+      console.log('🔗 Sending combined updateDetectionsByUrl with target URL on navigation complete', { tabId, url: tab.url });
+      const detectionsByUrl = entry ? serializeDetectionsByUrl(entry.detectionsByUrl) : {};
+      chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl, targetUrl: tab.url }, () => { });
     }
     // Only request content analysis for tabs where the side panel is ready
     if (panelReady) {
@@ -827,7 +818,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const urlCount = entry.detectionsByUrl?.size || 0;
         console.log('🔧 Background sending updateDetectionsByUrl from detectedTechs message', { tabId, url, urlCount, htmlCount: technologies.length });
         const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
-        chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl }, () => { });
+        chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl, targetUrl: null }, () => { });
       }
     }
     return; // handled
@@ -850,7 +841,7 @@ chrome.runtime.onConnect.addListener((port) => {
         const urlCount = entry.detectionsByUrl?.size || 0;
         console.log('📨 Sending stored detections to newly ready panel', { tabId, urlCount });
         const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
-        chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl }, () => { });
+        chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl, targetUrl: entry.url }, () => { });
       }
     }
 
