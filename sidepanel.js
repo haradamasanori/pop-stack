@@ -467,21 +467,19 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     
   // Show reload suggestion initially (will be hidden if content script responds)
   showReloadSuggestion();
-  
-
 
   // Request content analysis for this tab now that the panel is ready
   console.log('🚀 Sidepanel requesting content analysis', { tabId });
   try {
-    chrome.runtime.sendMessage({ action: 'requestAnalyze', tabId }, (response) => {
+    chrome.tabs.sendMessage(tabId, { action: 'analyze' }, (response) => {
       if (chrome.runtime.lastError) {
-        console.warn('⚠️ Failed to send requestAnalyze:', chrome.runtime.lastError.message);
+        console.warn('⚠️ Failed to send analyze message to content script:', chrome.runtime.lastError.message);
       } else {
-        console.log('✅ RequestAnalyze sent successfully');
+        console.log('✅ Analyze message sent successfully to content script');
       }
     });
   } catch (e) {
-    console.error('❌ Exception sending requestAnalyze:', e);
+    console.error('❌ Exception sending analyze message:', e);
   }
 
   // Check reload suggestion after a delay

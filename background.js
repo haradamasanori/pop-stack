@@ -797,24 +797,6 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('onMessage received', { message, sender });
-  // Handle panel handshake messages first
-  if (message.action === 'requestAnalyze') {
-    const tabId = message.tabId || (sender && sender.tab && sender.tab.id);
-    console.log('🚀 Background received requestAnalyze', { tabId });
-    if (tabId) {
-      console.log('📨 Background sending analyze message to content script', { tabId });
-      chrome.tabs.sendMessage(tabId, { action: 'analyze' }, (response) => {
-        if (chrome.runtime.lastError) {
-          console.warn('⚠️ Failed to send analyze message to content script:', chrome.runtime.lastError.message);
-        } else {
-          console.log('✅ Analyze message sent successfully to content script');
-        }
-      });
-    } else {
-      console.warn('⚠️ No tabId found for requestAnalyze message');
-    }
-    return;
-  }
   // Store detections sent from content scripts so background can serve them
   // directly to the side panel without needing an immediate tabs.sendMessage.
   if (message.action === 'detectedTechs') {
