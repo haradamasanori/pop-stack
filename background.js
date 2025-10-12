@@ -750,10 +750,9 @@ chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
     readyPanels.delete(tabId);
     console.log('Removed tab from readyPanels due to tab close', tabId);
   }
-  // Clean up any stored header detections for the removed tab and notify UI
+  // Clean up any stored header detections for the removed tab
   if (tabDetections.has(tabId)) {
     tabDetections.delete(tabId);
-    chrome.runtime.sendMessage({ action: 'removeTab', tabId }, () => { });
   }
 });
 
@@ -942,22 +941,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     });
     return; // handled
-  }
-  if (message.action === 'getDetectedTechs') {
-    // Return merged detections for the active tab using new structure
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs.length > 0) {
-        const tabId = tabs[0].id;
-        const { allTechs, analyzedUrls } = getAllTechnologiesForTab(tabId);
-        sendResponse({ 
-          technologies: allTechs,
-          analyzedUrls: analyzedUrls
-        });
-      } else {
-        sendResponse({ error: 'No active tab found.' });
-      }
-    });
-    return true; // Indicates that the response is sent asynchronously
   }
 });
 

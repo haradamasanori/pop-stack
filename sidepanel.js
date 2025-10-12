@@ -7,7 +7,6 @@ let currentUrlsWithCounts = []; // Store URLs with component counts
 let currentTabId = null;
 let currentTabUrl = null;
 let currentDetectionsByUrl = {}; // Store detectionsByUrl for current URL
-let hasContentScriptResponded = false;
 
 function createUrlItem(url, counts) {
   // Clone the template
@@ -387,16 +386,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // Extract URLs for backward compatibility
       currentAnalyzedUrls = Object.keys(currentDetectionsByUrl);
 
-      // Set flag that content script has responded
-      if (currentTechs.length > 0) {
-        hasContentScriptResponded = true;
-      }
-
       renderCombinedList();
     }
   } else if (message.action === 'clearTechs') {
     console.log('🧹 clearTechs called - clearing all technologies');
-    techList.innerHTML = '';
     currentTechs = [];
     currentAnalyzedUrls = [];
     currentUrlsWithCounts = [];
@@ -416,8 +409,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     });
     
-    renderUnifiedUrls();
-    showReloadSuggestion();
+    renderCombinedList();
+
   }
 });
 

@@ -3,7 +3,6 @@ if (window !== window.top) {
   // This is an iframe, don't run analysis
 } else {
 
-let detectedTechsByTab = {};
 let techConfig = null;
 let idleDetectionScheduled = false;
 
@@ -190,35 +189,30 @@ function detectTechnologies() {
   return detected;
 }
 
-function scheduleIdleDetection(tabId) {
+function scheduleIdleDetection() {
   if (idleDetectionScheduled) return;
   idleDetectionScheduled = true;
-  
+
   // Use requestIdleCallback with fallback to setTimeout
   const runIdleDetection = () => {
     console.log('Running idle detection for lazy-loaded elements');
-    
+
     if (!shouldAnalyzePage()) {
       console.log('Skipping idle detection - not an HTML page');
       return;
     }
-    
+
     const idleDetected = detectTechnologies();
-    const initialResults = detectedTechsByTab[tabId] || [];
-    const mergedResults = mergeDetectionResults(initialResults, idleDetected);
-    
-    // Only send update if we found new technologies
-    if (mergedResults.length > initialResults.length) {
-      console.log(`Idle detection found ${mergedResults.length - initialResults.length} new technologies`);
-      
-      // Update stored results
-      detectedTechsByTab[tabId] = mergedResults;
-      
+    const mergedResults = mergeDetectionResults([], idleDetected); // We don't have initial results here, so just process what we found.
+
+    // Only send update if we found any technologies
+    if (mergedResults.length > 0) {
+      console.log(`Idle detection found ${mergedResults.length} new technologies`);
+
       // Send merged results to background script
       chrome.runtime.sendMessage({
         action: 'detectedTechs',
-        technologies: mergedResults,
-        tabId: tabId
+        technologies: mergedResults
       }, (response) => {
         if (chrome.runtime.lastError) {
           console.debug('Failed to send idle detection results to background:', chrome.runtime.lastError.message);
@@ -282,20 +276,11 @@ async function analyzeContent() {
   const technologies = detectTechnologies();
   console.log('🔍 detectTechnologies() returned:', technologies, 'count:', technologies.length);
   // Store detected technologies for the current tab
-  chrome.runtime.sendMessage({ action: 'getTabId' }, (response) => {
-    const tabId = response && response.tabId ? response.tabId : null;
-    if (tabId) {
-      detectedTechsByTab[tabId] = technologies;
-      chrome.runtime.sendMessage({ action: 'detectedTechs', technologies: technologies, tabId: tabId });
-      console.log('chrome.runtime.sendMessage called', { technologies, tabId });
-      
-      // Schedule idle detection for lazy-loaded elements
-      scheduleIdleDetection(tabId);
-    } else {
-      chrome.runtime.sendMessage({ action: 'detectedTechs', technologies: technologies });
-      console.log('chrome.runtime.sendMessage called', { technologies });
-    }
-  });
+  // The background script will know the tabId from the sender.
+  chrome.runtime.sendMessage({ action: 'detectedTechs', technologies: technologies });
+  console.log('chrome.runtime.sendMessage called', { technologies });
+
+  scheduleIdleDetection();
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
