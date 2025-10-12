@@ -368,14 +368,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             const combinedTexts = [...existingTexts, ...newTexts];
             existing.matchedTexts = [...new Set(combinedTexts)].slice(0, 10); // Dedupe and limit to 10
             
-            // Update detection method to show it was detected by multiple methods
-            const methods = new Set();
-            if (existing.detectionMethod) methods.add(existing.detectionMethod);
-            if (tech.detectionMethod) methods.add(tech.detectionMethod);
-            
-            if (methods.size > 1) {
-              existing.detectionMethod = Array.from(methods).join(' + ');
-            }
           }
         });
       });
@@ -394,23 +386,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     currentAnalyzedUrls = [];
     currentUrlsWithCounts = [];
     currentDetectionsByUrl = {};
-    hasContentScriptResponded = false;
-    
-    // Update target URL when navigation occurs
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs.length > 0 && tabs[0].id === currentTabId) {
-        const newUrl = tabs[0].url;
-        if (currentTabUrl !== newUrl) {
-          console.log('🔄 URL changed, calling getDetectionsByUrl', { oldUrl: currentTabUrl, newUrl });
-          currentTabUrl = newUrl;
-          // Call getDetectionsByUrl when URL changes (will trigger updateDetectionsByUrl message)
-          chrome.runtime.sendMessage({ action: 'getDetectionsByUrl', tabId: currentTabId });
-        }
-      }
-    });
-    
-    renderCombinedList();
 
+    // Update target URL if provided in the message
+    if (message.url && currentTabUrl !== message.url) {
+      console.log('🔄 URL changed', { oldUrl: currentTabUrl, newUrl: message.url });
+      currentTabUrl = message.url;
+    }
+
+    renderCombinedList();
   }
 });
 
@@ -486,8 +469,6 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   showReloadSuggestion();
   
 
-  // Request the current detectionsByUrl for the tab (will trigger updateDetectionsByUrl message)
-  chrome.runtime.sendMessage({ action: 'getDetectionsByUrl', tabId: tabId });
 
   // Request content analysis for this tab now that the panel is ready
   console.log('🚀 Sidepanel requesting content analysis', { tabId });

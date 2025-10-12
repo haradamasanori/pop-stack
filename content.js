@@ -54,11 +54,6 @@ function detectTechnologies() {
     let matchedTexts = [];
     let isDetected = false;
     
-    // Debug: log technology being processed
-    if (key === 'react' || key === 'jquery' || key === 'wordpress') {
-      console.log(`Processing ${name}:`, { selectors: selectors.length, htmlPatterns: htmlPatterns.length });
-    }
-
     // Try querySelector patterns first (faster)
     if (selectors.length > 0) {
       for (const selector of selectors) {
@@ -66,11 +61,6 @@ function detectTechnologies() {
           const elements = document.querySelectorAll(selector);
           if (elements.length > 0) {
             isDetected = true;
-            
-            // Debug: log successful detection
-            if (key === 'react' || key === 'jquery' || key === 'wordpress') {
-              console.log(`✓ ${name} detected via selector: ${selector} (${elements.length} elements)`);
-            }
             
             // Extract meaningful text from matched elements
             elements.forEach((element, index) => {
@@ -156,12 +146,6 @@ function detectTechnologies() {
           }
           
           if (isDetected) {
-            // Debug: log successful HTML detection
-            if (key === 'react' || key === 'jquery' || key === 'wordpress') {
-              console.log(`✓ ${name} detected via HTML regex: ${pattern} (${matchedTexts.length} matches)`);
-            } else {
-              console.log(`Detected ${name} via HTML regex: ${pattern} (${matchedTexts.length} matches)`);
-            }
             break; // Stop after first successful pattern
           }
         } catch (error) {
@@ -179,7 +163,6 @@ function detectTechnologies() {
         link: link || '',
         tags: tags || [],
         developer: developer || '',
-        detectionMethod: 'HTML',
         matchedTexts: [...new Set(matchedTexts)].slice(0, 5) // Remove duplicates, limit to 5
       });
     }

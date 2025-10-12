@@ -382,7 +382,6 @@ async function detectTechnologiesFromIP(tabId, url, hostname, ipAddress) {
         link: config.link || '',
         tags: config.tags || ['cloud', 'infrastructure'],
         developer: config.developer || '',
-        detectionMethod: 'IP Address',
         matchedTexts: [`${hostname} ${ipAddress}`]
       };
       
@@ -394,15 +393,11 @@ async function detectTechnologiesFromIP(tabId, url, hostname, ipAddress) {
       
       console.log(`🎯 Detected ${config.name} via IP address ${ipAddress} for ${hostname}`);
     }
-  }
-  
-  // Notify side panel if it's open for this tab
-  const { allTechs, analyzedUrls } = getAllTechnologiesForTab(tabId);
-  
-  console.log('🔧 IP detection completed', { tabId, hostname, ipAddress, techCount: allTechs.length, panelReady: readyPanels.has(tabId) });
+  }  
   
   // Only send to the panel if it is ready for this tab
   if (readyPanels.has(tabId)) {
+    const entry = tabDetections.get(tabId);
     console.log('📨 Sending IP detection results to ready panel');
     const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
     chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl }, (res) => { });
@@ -426,73 +421,6 @@ function serializeDetectionsByUrl(detectionsByUrlMap) {
 }
 
 // Helper function to get all technologies and analyzed URLs for a tab
-function getAllTechnologiesForTab(tabId) {
-  const entry = tabDetections.get(tabId);
-  if (!entry || !entry.detectionsByUrl) {
-    return { allTechs: [], analyzedUrls: [] };
-  }
-  
-  const allTechs = [];
-  const analyzedUrls = Array.from(entry.detectionsByUrl.keys());
-  const techMap = new Map(); // Use Map to track and merge duplicate technologies
-  
-  // Combine all technologies from all URLs, merging matchedText for duplicates
-  for (const [url, detection] of entry.detectionsByUrl) {
-    const headerComponents = detection.headerComponents || [];
-    const htmlComponents = detection.htmlComponents || [];
-    const ipComponents = detection.ipComponents || [];
-    
-    console.log(`🔍 Processing detections for URL: ${url}`, {
-      headerComponents: headerComponents.length,
-      htmlComponents: htmlComponents.length, 
-      ipComponents: ipComponents.length
-    });
-    
-    [...headerComponents, ...htmlComponents, ...ipComponents].forEach(tech => {
-      console.log(`🔧 Processing tech: ${tech.name} (key: ${tech.key}, method: ${tech.detectionMethod})`);
-      
-      if (!techMap.has(tech.key)) {
-        // First occurrence - add as is
-        console.log(`✨ First occurrence of ${tech.name}, adding with ${tech.matchedTexts?.length || 0} matched texts`);
-        techMap.set(tech.key, { ...tech });
-      } else {
-        // Duplicate found - merge matchedText
-        console.log(`🔄 Duplicate ${tech.name} found, merging matched texts`);
-        const existing = techMap.get(tech.key);
-        const existingTexts = existing.matchedTexts || [];
-        const newTexts = tech.matchedTexts || [];
-        
-        console.log(`📝 Merging texts - existing: ${existingTexts.length}, new: ${newTexts.length}`);
-        
-        // Combine and deduplicate matchedTexts
-        const combinedTexts = [...existingTexts, ...newTexts];
-        existing.matchedTexts = [...new Set(combinedTexts)].slice(0, 10); // Dedupe and limit to 10
-        
-        console.log(`📋 After merge: ${existing.matchedTexts.length} total texts`);
-        
-        // Also update detection method to show it was detected by multiple methods
-        const methods = new Set();
-        if (existing.detectionMethod) methods.add(existing.detectionMethod);
-        if (tech.detectionMethod) methods.add(tech.detectionMethod);
-        
-        if (methods.size > 1) {
-          const newMethod = Array.from(methods).join(' + ');
-          console.log(`🔀 Updated detection method: ${existing.detectionMethod} → ${newMethod}`);
-          existing.detectionMethod = newMethod;
-        }
-      }
-    });
-  }
-  
-  // Convert Map values to array
-  allTechs.push(...Array.from(techMap.values()));
-  
-  console.log(`🎯 Final technologies for tab ${tabId}:`, allTechs.map(tech => 
-    `${tech.name} (${tech.detectionMethod}) - ${tech.matchedTexts?.length || 0} texts: [${tech.matchedTexts?.slice(0, 3).join(', ')}${tech.matchedTexts?.length > 3 ? '...' : ''}]`
-  ));
-  
-  return { allTechs, analyzedUrls };
-}
 
 async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
   if (!tabId || !responseHeaders || !url) return;
@@ -552,7 +480,6 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
         link: config.link || '',
         tags: config.tags || [],
         developer: config.developer || '',
-        detectionMethod: 'HTTP Headers',
         matchedTexts: [...new Set(matchedTexts)] // Remove duplicates
       };
       
@@ -566,11 +493,6 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
   });
   
   // Notify side panel if it's open for this tab so UI updates immediately
-  const { allTechs, analyzedUrls } = getAllTechnologiesForTab(tabId);
-  
-  console.log('🔧 Header detection completed', { tabId, techCount: allTechs.length, panelReady: readyPanels.has(tabId) });
-  
-  // Only send to the panel if it is ready for this tab
   if (readyPanels.has(tabId)) {
     console.log('📨 Sending header detection results to ready panel');
     const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
@@ -791,8 +713,8 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
 
       // Send updated tech list if panel is ready
       if (panelReady) {
-        const { allTechs, analyzedUrls } = getAllTechnologiesForTab(tabId);
-        console.log('🔧 Background sending updateDetectionsByUrl during loading', { tabId, techCount: allTechs.length, urlCount: analyzedUrls.length });
+        const urlCount = entry.detectionsByUrl?.size || 0;
+        console.log('🔧 Background sending updateDetectionsByUrl during loading', { tabId, urlCount });
         const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
         chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl }, (res) => { });
 
@@ -805,7 +727,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
         // Send clearTechs if panel is not ready
         try {
           console.log('🧹 Background sending clearTechs message for navigation loading (panel not ready)', { tabId, url: newUrl });
-          chrome.runtime.sendMessage({ action: 'clearTechs', tabId }, (res) => {
+          chrome.runtime.sendMessage({ action: 'clearTechs', tabId, url: newUrl }, (res) => {
             if (chrome.runtime.lastError) {
               console.debug('clearTechs message had no receiver', chrome.runtime.lastError);
             }
@@ -920,26 +842,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       
       // Get combined results and notify sidepanel if panel is ready
       if (readyPanels.has(tabId)) {
-        const { allTechs, analyzedUrls } = getAllTechnologiesForTab(tabId);
-        console.log('🔧 Background sending updateDetectionsByUrl from detectedTechs message', { tabId, url, techCount: allTechs.length, htmlCount: technologies.length });
+        const urlCount = entry.detectionsByUrl?.size || 0;
+        console.log('🔧 Background sending updateDetectionsByUrl from detectedTechs message', { tabId, url, urlCount, htmlCount: technologies.length });
         const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
         chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl }, () => { });
       }
     }
-    return; // handled
-  }
-  if (message.action === 'getDetectionsByUrl') {
-    // Send updateDetectionsByUrl message instead of returning response
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs.length > 0) {
-        const tabId = tabs[0].id;
-        const entry = tabDetections.get(tabId);
-        if (entry) {
-          const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
-          chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl }, () => { });
-        }
-      }
-    });
     return; // handled
   }
 });
@@ -955,10 +863,10 @@ chrome.runtime.onConnect.addListener((port) => {
       readyPanels.add(tabId);
       console.log('🎛️ Panel ready for tab', tabId);
       // send current state for this tab, if present
-      const { allTechs, analyzedUrls } = getAllTechnologiesForTab(tabId);
-      console.log('📨 Sending stored detections to newly ready panel', { tabId, techCount: allTechs.length, urlCount: analyzedUrls.length });
       const entry = tabDetections.get(tabId);
       if (entry) {
+        const urlCount = entry.detectionsByUrl?.size || 0;
+        console.log('📨 Sending stored detections to newly ready panel', { tabId, urlCount });
         const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
         chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl }, () => { });
       }
