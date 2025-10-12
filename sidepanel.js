@@ -173,9 +173,10 @@ function renderUnifiedUrls() {
   
   // Add current tab URL first if it exists
   if (currentTabUrl) {
-    // Check if we have counts for the target URL, otherwise use empty object
+    // Check if we have counts for the target URL, otherwise use "?" for missing detection
     const targetUrlCounts = currentUrlsWithCounts.find(item => item.url === currentTabUrl);
-    urlMap.set(currentTabUrl, targetUrlCounts ? targetUrlCounts.counts : {});
+    const counts = targetUrlCounts ? targetUrlCounts.counts : { ip: '?', http: '?', html: '?' };
+    urlMap.set(currentTabUrl, counts);
   }
   
   // Add analyzed URLs with their counts
@@ -187,7 +188,7 @@ function renderUnifiedUrls() {
   if (currentUrlsWithCounts.length === 0 && currentAnalyzedUrls.length > 0) {
     currentAnalyzedUrls.forEach(url => {
       if (!urlMap.has(url)) {
-        urlMap.set(url, {});
+        urlMap.set(url, { ip: '?', http: '?', html: '?' });
       }
     });
   }
@@ -270,11 +271,26 @@ function hideReloadSuggestion() {
   renderUnifiedUrls();
 }
 
+function checkAndUpdateReloadSuggestion() {
+  if (!currentTabUrl) return;
+
+  const currentUrlDetection = currentDetectionsByUrl[currentTabUrl];
+  const hasIpDetection = currentUrlDetection && currentUrlDetection.ipComponents !== undefined;
+  const hasHttpDetection = currentUrlDetection && currentUrlDetection.headerComponents !== undefined;
+
+
+  // Show reload suggestion if we have no technologies AND either IP or HTTP detection is missing
+  if (currentTechs.length === 0 && (!hasIpDetection || !hasHttpDetection)) {
+    showReloadSuggestion();
+  } else {
+    hideReloadSuggestion();
+  }
+}
 
 function renderCombinedList() {
-  // Render unified URLs list 
+  // Render unified URLs list
   renderUnifiedUrls();
-  
+
   // Build a unified list of all detected technologies
   techList.innerHTML = '';
 
@@ -289,6 +305,9 @@ function renderCombinedList() {
     emptyState.innerHTML = '<p>No technologies detected.</p>';
     techList.appendChild(emptyState);
   }
+
+  // Check and update reload suggestion after rendering
+  checkAndUpdateReloadSuggestion();
 }
 
 
@@ -320,9 +339,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       currentUrlsWithCounts = Object.entries(currentDetectionsByUrl).map(([url, detection]) => ({
         url: url,
         counts: {
-          ip: (detection.ipComponents || []).length,
-          http: (detection.headerComponents || []).length,
-          html: (detection.htmlComponents || []).length
+          ip: detection.ipComponents !== undefined ? detection.ipComponents.length : '?',
+          http: detection.headerComponents !== undefined ? detection.headerComponents.length : '?',
+          html: detection.htmlComponents !== undefined ? detection.htmlComponents.length : '?'
         }
       }));
       
@@ -367,13 +386,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       
       // Extract URLs for backward compatibility
       currentAnalyzedUrls = Object.keys(currentDetectionsByUrl);
-      
-      // If we have technologies, hide the reload suggestion
+
+      // Set flag that content script has responded
       if (currentTechs.length > 0) {
         hasContentScriptResponded = true;
-        hideReloadSuggestion();
       }
-      
+
       renderCombinedList();
     }
   } else if (message.action === 'clearTechs') {
@@ -456,6 +474,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// Establish connection to background script for panel closure detection
+var port = null;
+
 // Request the detected technologies when the side panel is opened
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   console.log('chrome.tabs.query called', { tabs });
@@ -463,18 +484,14 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   const tabUrl = tabs[0].url;
   currentTabId = tabId; // Store current tab ID for message filtering
   currentTabUrl = tabUrl; // Store current tab URL
+  port = chrome.runtime.connect({ name: 'sidepanel-' + currentTabId });
   
   // Show target URL immediately
   renderTargetUrl();
-  
-  
+    
   // Show reload suggestion initially (will be hidden if content script responds)
   showReloadSuggestion();
   
-  // Notify background that the panel is ready to receive updates for this tab
-  chrome.runtime.sendMessage({ action: 'panelReady', tabId }, (res) => {
-    // ignore response; background will send current state after registering readiness
-  });
 
   // Request the current detectionsByUrl for the tab (will trigger updateDetectionsByUrl message)
   chrome.runtime.sendMessage({ action: 'getDetectionsByUrl', tabId: tabId });
@@ -493,20 +510,9 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     console.error('❌ Exception sending requestAnalyze:', e);
   }
 
-  // Show reload suggestion after a delay if no technologies were detected
+  // Check reload suggestion after a delay
   setTimeout(() => {
-    if (currentTechs.length === 0) {
-      showReloadSuggestion();
-    }
+    checkAndUpdateReloadSuggestion();
   }, 2000); // Wait 2 seconds for content script response
 
-  // Inform background when the panel is unloaded/closed so it can stop
-  // assuming the panel is listening for this tab.
-  window.addEventListener('unload', () => {
-    try {
-      chrome.runtime.sendMessage({ action: 'panelClosed', tabId });
-    } catch (e) {
-      // ignore
-    }
-  });
 });

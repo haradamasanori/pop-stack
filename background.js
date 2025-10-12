@@ -589,18 +589,24 @@ try {
       const tabId = details.tabId;
       // Only inspect responses for tabs where the side panel is enabled (panel ready)
       if (typeof tabId !== 'number' || tabId < 0) return;
-      
-      console.log('🌐 webRequest.onHeadersReceived', { 
-        tabId, 
-        url: details.url, 
-        frameId: details.frameId,
-        panelReady: readyPanels.has(tabId),
-        readyPanels: Array.from(readyPanels)
-      });
 
       // Only accept main frame requests - use frameId as primary check since type can be unreliable
       // frameId 0 is always the main frame, regardless of type field
       if (details.frameId !== 0) return;
+
+      // Only analyze when panel is ready for this tab
+      if (!readyPanels.has(tabId)) {
+        console.log('⏭️ Skipping header analysis - panel not ready for tab', tabId);
+        return;
+      }
+
+      console.log('🌐 webRequest.onHeadersReceived', {
+        tabId,
+        url: details.url,
+        frameId: details.frameId,
+        panelReady: readyPanels.has(tabId),
+        readyPanels: Array.from(readyPanels)
+      });
 
       // Only analyze server headers from same hostname as the tab - skip external resources
       try {
@@ -656,15 +662,21 @@ try {
       
       // Only process main frame requests for valid tabs
       if (typeof tabId !== 'number' || tabId < 0 || details.frameId !== 0) return;
-      
-      console.log('🌐 webRequest.onCompleted', { 
-        tabId, 
-        url: details.url, 
+
+      // Only analyze when panel is ready for this tab
+      if (!readyPanels.has(tabId)) {
+        console.log('⏭️ Skipping IP analysis - panel not ready for tab', tabId);
+        return;
+      }
+
+      console.log('🌐 webRequest.onCompleted', {
+        tabId,
+        url: details.url,
         ip: details.ip,
         method: details.method,
         statusCode: details.statusCode
       });
-      
+
       // Only process successful requests with IP addresses
       if (details.ip && details.statusCode >= 200 && details.statusCode < 400) {
         try {
@@ -865,27 +877,6 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('onMessage received', { message, sender });
   // Handle panel handshake messages first
-  if (message.action === 'panelReady') {
-    const tabId = message.tabId || (sender && sender.tab && sender.tab.id);
-    if (tabId) {
-      readyPanels.add(tabId);
-      console.log('🎛️ Panel ready for tab', tabId);
-      // send current state for this tab, if present
-      const { allTechs, analyzedUrls } = getAllTechnologiesForTab(tabId);
-      console.log('📨 Sending stored detections to newly ready panel', { tabId, techCount: allTechs.length, urlCount: analyzedUrls.length });
-      const entry = tabDetections.get(tabId);
-      if (entry) {
-        const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
-        chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl }, () => { });
-      }
-    }
-    return; // handled
-  }
-  if (message.action === 'panelClosed') {
-    const tabId = message.tabId || (sender && sender.tab && sender.tab.id);
-    if (tabId) readyPanels.delete(tabId);
-    return;
-  }
   if (message.action === 'requestAnalyze') {
     const tabId = message.tabId || (sender && sender.tab && sender.tab.id);
     console.log('🚀 Background received requestAnalyze', { tabId });
@@ -967,5 +958,40 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     });
     return true; // Indicates that the response is sent asynchronously
+  }
+});
+
+// Listen for connections from other parts of the extension (like the side panel)
+chrome.runtime.onConnect.addListener((port) => {
+  // Check if the connection is coming from your side panel
+  if (port.name?.startsWith('sidepanel-')) {
+    const tabId = port.name.split('-')[1] ? parseInt(port.name.split('-')[1], 10) : null;
+    console.log('📡 Side panel connected', { tabId });
+
+    if (tabId) {
+      readyPanels.add(tabId);
+      console.log('🎛️ Panel ready for tab', tabId);
+      // send current state for this tab, if present
+      const { allTechs, analyzedUrls } = getAllTechnologiesForTab(tabId);
+      console.log('📨 Sending stored detections to newly ready panel', { tabId, techCount: allTechs.length, urlCount: analyzedUrls.length });
+      const entry = tabDetections.get(tabId);
+      if (entry) {
+        const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
+        chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl }, () => { });
+      }
+    }
+
+    // Add a listener for when the port is disconnected
+    port.onDisconnect.addListener(() => {
+      // This block executes when the side panel is closed by the user,
+      // the tab is closed, or the context is destroyed.
+      console.log(`📡 Side panel disconnected ${tabId}. Executing cleanup...`);
+
+      // Remove the tab from readyPanels when panel is closed
+      if (tabId && readyPanels.has(tabId)) {
+        readyPanels.delete(tabId);
+        console.log('🧹 Removed tab from readyPanels due to panel closure', tabId);
+      }
+    });
   }
 });
