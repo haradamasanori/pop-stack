@@ -73,6 +73,40 @@
     </div>
   </template>
 
+  <!-- Tech card title with link template -->
+  <template id="tech-card-title-link-template">
+    <a href="#" target="_blank" class="link link-primary" data-name></a>
+    <span class="text-[10px] text-base-content/80 font-normal" data-developer-container>by <span data-developer></span></span>
+    <span data-tags-container></span>
+  </template>
+
+  <!-- Tech card title without link template -->
+  <template id="tech-card-title-no-link-template">
+    <span data-name></span>
+    <span class="text-sm text-base-content/80 font-normal" data-developer-container>by <span data-developer></span></span>
+    <span data-tags-container></span>
+  </template>
+
+  <!-- Tag badge template -->
+  <template id="tag-badge-template">
+    <span class="badge badge-xs badge-outline ml-1"></span>
+  </template>
+
+  <!-- Matched text item template (collapsed) -->
+  <template id="matched-text-item-collapsed-template">
+    <div class="matched-text-item text-xs text-base-content font-mono overflow-hidden text-ellipsis whitespace-nowrap" data-text></div>
+  </template>
+
+  <!-- Matched text item template (expanded) -->
+  <template id="matched-text-item-expanded-template">
+    <div class="matched-text-item text-xs text-base-content font-mono" data-text></div>
+  </template>
+
+  <!-- "More matches" indicator template -->
+  <template id="more-matches-indicator-template">
+    <div class="text-xs text-base-content/50 italic" data-text></div>
+  </template>
+
   <!-- URL item template -->
   <template id="url-item-template">
     <div class="mb-2 flex justify-between items-center">

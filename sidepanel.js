@@ -63,40 +63,67 @@ function createTechCard(tech) {
   // Track expansion state
   let isExpanded = false;
 
-  // Set title with optional link, developer info, and tags in a single inline span
+  // Populate title using templates
   const maxTags = window.innerWidth > 400 ? 4 : 3;
-  const tagsBadges = tags.length > 0
-    ? ` ${tags.slice(0, maxTags)
-        .map(tag => `<span class="badge badge-xs badge-outline ml-1">${tag}</span>`)
-        .join('')}`
-    : '';
+  const titleTemplateId = link ? 'tech-card-title-link-template' : 'tech-card-title-no-link-template';
+  const titleTemplate = document.getElementById(titleTemplateId);
+  const titleContentFragment = titleTemplate.content.cloneNode(true);
 
-  const titleContent = link ?
-    `<a href="${link}" target="_blank" class="link link-primary">${name}</a>${developer
-      ? ` <span class="text-[10px] text-base-content/80 font-normal">by ${developer}</span>` : ''}${tagsBadges}` :
-    `${name}${developer ? ` <span class="text-sm text-base-content/80 font-normal">by ${developer}</span>` : ''}${tagsBadges}`;
+  // Set name and link
+  const nameElement = titleContentFragment.querySelector('[data-name]');
+  nameElement.textContent = name;
+  if (link) {
+    nameElement.href = link;
+  }
 
-  titleElement.innerHTML = `<span class="inline">${titleContent}</span>`;
+  // Set developer info
+  const developerContainer = titleContentFragment.querySelector('[data-developer-container]');
+  if (developer) {
+    titleContentFragment.querySelector('[data-developer]').textContent = developer;
+  } else {
+    developerContainer.remove();
+  }
+
+  // Set tags
+  const tagsContainer = titleContentFragment.querySelector('[data-tags-container]');
+  if (tags.length > 0) {
+    const tagBadgeTemplate = document.getElementById('tag-badge-template');
+    tags.slice(0, maxTags).forEach(tagText => {
+      const badge = tagBadgeTemplate.content.cloneNode(true);
+      badge.querySelector('.badge').textContent = tagText;
+      tagsContainer.appendChild(badge);
+    });
+  }
+
+  titleElement.innerHTML = '<span class="inline"></span>';
+  titleElement.firstElementChild.appendChild(titleContentFragment);
 
   // Set matched texts content
   if (matchedTexts && matchedTexts.length > 0) {
-    // Collapsed view - show only first match
     matchedTextsCollapsedElement.style.display = 'block';
-    const firstMatch = matchedTexts[0];
-    const escapedText = firstMatch.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    matchedTextsListCollapsedElement.innerHTML = `<div class="matched-text-item text-xs text-base-content font-mono overflow-hidden text-ellipsis whitespace-nowrap">${escapedText}</div>`;
+
+    // Get templates
+    const collapsedItemTemplate = document.getElementById('matched-text-item-collapsed-template');
+    const expandedItemTemplate = document.getElementById('matched-text-item-expanded-template');
+    const moreIndicatorTemplate = document.getElementById('more-matches-indicator-template');
+
+    // Collapsed view - show only first match
+    const collapsedItem = collapsedItemTemplate.content.cloneNode(true);
+    collapsedItem.querySelector('[data-text]').textContent = matchedTexts[0];
+    matchedTextsListCollapsedElement.appendChild(collapsedItem);
 
     if (matchedTexts.length > 1) {
-      matchedTextsListCollapsedElement.innerHTML += `<div class="text-xs text-base-content/50 italic">+${matchedTexts.length - 1} more...</div>`;
+      const moreIndicator = moreIndicatorTemplate.content.cloneNode(true);
+      moreIndicator.querySelector('[data-text]').textContent = `+${matchedTexts.length - 1} more...`;
+      matchedTextsListCollapsedElement.appendChild(moreIndicator);
     }
 
     // Expanded view - show all matches
-    matchedTextsListExpandedElement.innerHTML = matchedTexts
-      .map(text => {
-        const escapedText = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        return `<div class="matched-text-item text-xs text-base-content font-mono">${escapedText}</div>`;
-      })
-      .join('');
+    matchedTexts.forEach(text => {
+      const expandedItem = expandedItemTemplate.content.cloneNode(true);
+      expandedItem.querySelector('[data-text]').textContent = text;
+      matchedTextsListExpandedElement.appendChild(expandedItem);
+    });
   }
 
   // Set description content
