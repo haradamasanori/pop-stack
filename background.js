@@ -507,18 +507,10 @@ try {
   console.log('Attempting to register webRequest.onHeadersReceived listener', { webRequestAvailable: !!(chrome.webRequest && chrome.webRequest.onHeadersReceived) });
   chrome.webRequest.onHeadersReceived.addListener(
     (details) => {
-      // details.tabId may be -1 for non-tab resources; ignore those
       const tabId = details.tabId;
-      // Only inspect responses for tabs where the side panel is enabled (panel ready)
-      if (typeof tabId !== 'number' || tabId < 0) return;
-
-      // Only accept main frame requests - use frameId as primary check since type can be unreliable
-      // frameId 0 is always the main frame, regardless of type field
-      if (details.frameId !== 0) return;
-
-      // Only analyze when panel is ready for this tab
-      if (!readyPanels.has(tabId)) {
-        console.log('⏭️ Skipping header analysis - panel not ready for tab', tabId);
+      
+      // Only inspect responses for tabs where the side panel is enabled
+      if (typeof tabId !== 'number' || tabId < 0 || !readyPanels.has(tabId)) {
         return;
       }
 
@@ -526,33 +518,14 @@ try {
         tabId,
         url: details.url,
         frameId: details.frameId,
+        type: details.type,
         panelReady: readyPanels.has(tabId),
         readyPanels: Array.from(readyPanels)
       });
 
-      // Only analyze server headers from same hostname as the tab - skip external resources
-      try {
-        const requestUrl = new URL(details.url);
-        
-        // Get tab URL to compare hostnames
-        chrome.tabs.get(tabId, (tab) => {
-          if (chrome.runtime.lastError || !tab || !tab.url) return;
-          
-          try {
-            const tabUrl = new URL(tab.url);
-            // Only process requests from same hostname as the tab
-            if (requestUrl.hostname === tabUrl.hostname) {
-              processResponseHeaders(details, tabId);
-            }
-          } catch (e) {
-            console.debug('URL parse failed for tab hostname comparison', e);
-          }
-        });
-      } catch (e) {
-        console.debug('URL parse failed for request', e);
-      }
+      processResponseHeaders(details, tabId);
     },
-    { urls: ['<all_urls>'] },
+    { urls: ['<all_urls>'], types: ['main_frame'] },
     ['responseHeaders', 'extraHeaders']  // include extraHeaders to capture more headers
   );
 
@@ -582,8 +555,8 @@ try {
     (details) => {
       const tabId = details.tabId;
       
-      // Only process main frame requests for valid tabs
-      if (typeof tabId !== 'number' || tabId < 0 || details.frameId !== 0) return;
+      // Only process main_frame requests for valid tabs
+      if (typeof tabId !== 'number' || tabId < 0) return;
 
       // Only analyze when panel is ready for this tab
       if (!readyPanels.has(tabId)) {
@@ -596,7 +569,8 @@ try {
         url: details.url,
         ip: details.ip,
         method: details.method,
-        statusCode: details.statusCode
+        statusCode: details.statusCode,
+        type: details.type
       });
 
       // Only process successful requests with IP addresses
@@ -604,44 +578,25 @@ try {
         try {
           const requestUrl = new URL(details.url);
           
-          // Skip non-HTML resources based on URL path
-          const pathname = requestUrl.pathname.toLowerCase();
-          const nonHtmlExtensionRegex = /\.(png|jpe?g|gif|svg|webp|ico|css|js|json|xml|pdf|zip|mp[34]|wav|woff2?|[te]ot)$/i;
-          
-          if (nonHtmlExtensionRegex.test(pathname)) {
-            console.log('⏭️ Skipping IP detection for non-HTML resource:', details.url);
-            return;
-          }
-          
-          // Only analyze requests from same hostname as the tab - skip external resources
-          chrome.tabs.get(tabId, (tab) => {
-            if (chrome.runtime.lastError || !tab || !tab.url) return;
-            
-            try {
-              const tabUrl = new URL(tab.url);
-              // Only process requests from same hostname as the tab
-              if (requestUrl.hostname === tabUrl.hostname) {
-                if (requestUrl.hostname && requestUrl.hostname !== details.ip) { // Avoid processing raw IP URLs
-                  console.log('🔍 Triggering IP detection for', requestUrl.hostname, 'at', details.ip);
-                  
-                  // Run IP detection asynchronously
-                  detectTechnologiesFromIP(tabId, details.url, requestUrl.hostname, details.ip).catch(error => {
-                    console.warn('IP detection failed:', error);
-                  });
-                }
-              } else {
-                console.log('⏭️ Skipping IP detection for external hostname:', requestUrl.hostname, 'vs tab hostname:', tabUrl.hostname);
-              }
-            } catch (e) {
-              console.debug('URL parse failed for tab hostname comparison in IP detection', e);
+          const runIpDetection = () => {
+            if (requestUrl.hostname && requestUrl.hostname !== details.ip) { // Avoid processing raw IP URLs
+              console.log('🔍 Triggering IP detection for', requestUrl.hostname, 'at', details.ip);
+              
+              // Run IP detection asynchronously
+              detectTechnologiesFromIP(tabId, details.url, requestUrl.hostname, details.ip).catch(error => {
+                console.warn('IP detection failed:', error);
+              });
             }
-          });
+          };
+
+          runIpDetection();
+
         } catch (error) {
           console.warn('Failed to parse URL for IP detection:', error);
         }
       }
     },
-    { urls: ['<all_urls>'] }
+    { urls: ['<all_urls>'], types: ['main_frame'] }
   );
   
   console.log('webRequest.onCompleted listener registered for IP detection');
@@ -678,111 +633,75 @@ chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
   }
 });
 
+// Use onBeforeNavigate to capture the new URL as early as possible.
+// This helps ensure that webRequest listeners have the correct "current" URL for the tab.
+chrome.webNavigation.onBeforeNavigate.addListener((details) => {
+  const { tabId, url, frameId } = details;
+
+  // Only act on main frame navigations.
+  if (frameId !== 0) {
+    return;
+  }
+
+  console.log('🚀 webNavigation.onBeforeNavigate', { tabId, url });
+
+  let entry = tabDetections.get(tabId);
+  if (!entry) {
+    entry = { url: url, detectionsByUrl: new Map(), recentDetections: [] };
+    tabDetections.set(tabId, entry);
+  }
+
+  // If URL is changing, cache current detections before clearing and updating the URL.
+  if (entry.url && entry.url !== url) {
+    console.log('🔄 URL changing, caching current detections', { from: entry.url, to: url });
+    cacheCurrentDetections(tabId, entry.url);
+  }
+  
+  // Update to the new URL and clear old detections or restore from cache.
+  entry.url = url;
+  const cachedDetections = getCachedDetections(tabId, url);
+
+  if (cachedDetections) {
+    console.log('📦 Restored cached detections for URL:', url);
+    entry.detectionsByUrl = cachedDetections;
+  } else {
+    console.log('🧹 No cached detections, clearing detection components for new navigation.');
+    entry.detectionsByUrl.clear();
+  }
+
+  // Notify the side panel if it's ready, to clear the view for the new page.
+  if (readyPanels.has(tabId)) {
+    const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
+    chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl, targetUrl: url }, (res) => {
+      if (chrome.runtime.lastError) {
+        console.debug('updateDetectionsByUrl message had no receiver on navigate', chrome.runtime.lastError.message);
+      }
+    });
+  }
+});
+
 chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   console.log('tab updated', { tabId, info, tab });
   
   // Update the action button state whenever the tab is updated.
   updateActionAndSidePanel(tabId);
 
-  const panelReady = readyPanels.has(tabId);
-  // Clear all detections when navigation starts and handle caching
-  if (info.status === 'loading') {
-    let entry = tabDetections.get(tabId);
-    if (entry) {
-      const newUrl = (tab && tab.url) ? tab.url : (info.url || null);
+  // When the page has finished loading, send the final detections and
+  // trigger the content script to analyze the DOM.
+  if (info.status === 'complete' && tab.url && readyPanels.has(tabId)) {
+    const entry = tabDetections.get(tabId);
+    
+    // Send a final update to the side panel.
+    console.log('🔗 Sending final update on navigation complete', { tabId, url: tab.url });
+    const detectionsByUrl = entry ? serializeDetectionsByUrl(entry.detectionsByUrl) : {};
+    chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl, targetUrl: tab.url }, () => { });
 
-      // If URL is changing, cache current detections before clearing
-      if (entry.url && newUrl && entry.url !== newUrl) {
-        console.log('🔄 URL changing during loading, caching current detections', {
-          from: entry.url,
-          to: newUrl
-        });
-        cacheCurrentDetections(tabId, entry.url);
+    // Request content analysis from the content script.
+    chrome.tabs.sendMessage(tabId, { action: 'analyze' }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.debug('Could not send "analyze" message to content script:', chrome.runtime.lastError.message);
       }
-
-      // Check if we have cached detections for the new URL
-      const cachedDetections = newUrl ? getCachedDetections(tabId, newUrl) : null;
-
-      if (cachedDetections) {
-        console.log('📦 Restored cached detections during loading for URL:', newUrl);
-        entry.detectionsByUrl = cachedDetections;
-      } else {
-        console.log('🧹 No cached detections, clearing all detection components during loading');
-        entry.detectionsByUrl.clear();
-      }
-
-      // Send updated tech list if panel is ready
-      if (panelReady) {
-        const urlCount = entry.detectionsByUrl?.size || 0;
-        console.log('🔧 Background sending updateDetectionsByUrl during loading', { tabId, urlCount });
-        const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
-        chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl, targetUrl: newUrl }, (res) => { });
-      } else {
-        // Send clearTechs if panel is not ready
-        try {
-          console.log('🧹 Background sending clearTechs message for navigation loading (panel not ready)', { tabId, url: newUrl });
-          chrome.runtime.sendMessage({ action: 'clearTechs', tabId, url: newUrl }, (res) => {
-            if (chrome.runtime.lastError) {
-              console.debug('clearTechs message had no receiver', chrome.runtime.lastError);
-            }
-          });
-        } catch (e) {
-          // ignore
-        }
-      }
-    }
-  }
-
-  // If the tab with the side panel navigates, update the cached visible URL
-  if (tab && tab.url) {
-    let entry = tabDetections.get(tabId);
-    if (!entry) {
-      entry = { url: tab.url, detectionsByUrl: new Map(), recentDetections: [] };
-      tabDetections.set(tabId, entry);
-    } else {
-      entry.url = tab.url;
-    }
-  }
-
-  if (info.status === 'complete' && tab.url) {
-    // If navigation completed, and this tab is enabled, handle URL changes
-    if (panelReady) {
-      const entry = tabDetections.get(tabId);
-      if (entry && entry.url && entry.url !== tab.url) {
-        console.log('🔄 URL changed on navigation complete, caching and checking for cached data', {
-          from: entry.url,
-          to: tab.url
-        });
-
-        // Cache current detections before clearing
-        cacheCurrentDetections(tabId, entry.url);
-
-        // Check if we have cached detections for the new URL
-        const cachedDetections = getCachedDetections(tabId, tab.url);
-        if (cachedDetections) {
-          console.log('📦 Restored cached detections for URL:', tab.url);
-          entry.detectionsByUrl = cachedDetections;
-        } else {
-          console.log('🧹 No cached detections, clearing for new URL:', tab.url);
-          entry.detectionsByUrl.clear();
-        }
-      }
-
-      // Always send combined update with target URL on navigation complete
-      console.log('🔗 Sending combined updateDetectionsByUrl with target URL on navigation complete', { tabId, url: tab.url });
-      const detectionsByUrl = entry ? serializeDetectionsByUrl(entry.detectionsByUrl) : {};
-      chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl, targetUrl: tab.url }, () => { });
-    }
-    // Only request content analysis for tabs where the side panel is ready
-    if (panelReady) {
-      chrome.tabs.sendMessage(tabId, { action: 'analyze' }, (response) => {
-        if (chrome.runtime.lastError) {
-          // ...existing code...
-        }
-      });
-    }
-    // Note: Cannot programmatically open side panel after navigation due to user gesture requirement
-    // The panel will remain open if it was already open, or user needs to click the action button
+    });
   }
 });
 

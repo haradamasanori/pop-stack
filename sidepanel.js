@@ -196,7 +196,7 @@ function renderUnifiedUrls() {
 
   // Create a map to combine URLs with their counts
   const urlMap = new Map();
-  
+
   // Add current tab URL first if it exists
   if (currentTabUrl) {
     // Check if we have counts for the target URL, otherwise use "?" for missing detection
@@ -204,12 +204,12 @@ function renderUnifiedUrls() {
     const counts = targetUrlCounts ? targetUrlCounts.counts : { ip: '?', http: '?', html: '?' };
     urlMap.set(currentTabUrl, counts);
   }
-  
+
   // Add analyzed URLs with their counts
   currentUrlsWithCounts.forEach(item => {
     urlMap.set(item.url, item.counts);
   });
-  
+
   // If we have analyzed URLs but no counts data (fallback for old messages)
   if (currentUrlsWithCounts.length === 0 && currentAnalyzedUrls.length > 0) {
     currentAnalyzedUrls.forEach(url => {
@@ -218,7 +218,7 @@ function renderUnifiedUrls() {
       }
     });
   }
-  
+
   if (urlMap.size > 0) {
     // Clear existing content
     urlsList.innerHTML = '';
@@ -236,14 +236,14 @@ function renderUnifiedUrls() {
 
 function truncateUrl(url, maxLength) {
   if (url.length <= maxLength) return url;
-  
+
   try {
     const urlObj = new URL(url);
     const protocol = urlObj.protocol; // e.g., "https:"
     const hostname = urlObj.hostname; // e.g., "example.com"
     const protocolAndHost = protocol + '//' + hostname; // e.g., "https://example.com"
     const pathAndQuery = urlObj.pathname + urlObj.search + urlObj.hash;
-    
+
     // If just the protocol + hostname is too long, truncate the hostname part
     if (protocolAndHost.length >= maxLength - 3) {
       const protocolPart = protocol + '//'; // e.g., "https://"
@@ -255,18 +255,18 @@ function truncateUrl(url, maxLength) {
         return url.substring(0, maxLength - 3) + '...';
       }
     }
-    
+
     // Calculate how much space we have for the path
     const availableForPath = maxLength - protocolAndHost.length - 3; // 3 chars for "..."
-    
+
     if (pathAndQuery.length <= availableForPath) {
       return protocolAndHost + pathAndQuery;
     }
-    
+
     // Truncate path from the middle, keeping start and end
     const pathStart = pathAndQuery.substring(0, Math.floor(availableForPath / 2));
     const pathEnd = pathAndQuery.substring(pathAndQuery.length - Math.floor(availableForPath / 2));
-    
+
     return protocolAndHost + pathStart + '...' + pathEnd;
   } catch (e) {
     // Fallback for invalid URLs
@@ -327,24 +327,20 @@ function renderCombinedList() {
     emptyState.innerHTML = '<p>No technologies detected.</p>';
     techList.appendChild(emptyState);
   }
-
-  // Check and update reload suggestion after rendering
-  checkAndUpdateReloadSuggestion();
+  // Check reload suggestion after a delay
+  setTimeout(() => {
+    checkAndUpdateReloadSuggestion();
+  }, 2000); // Wait 2 seconds for content script response
 }
-
-
-
-
-
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('onMessage received', { message, sender });
-  
+
   // Only process messages for this tab
   if (message.tabId && currentTabId && message.tabId !== currentTabId) {
     return;
   }
-  
+
   if (message.action === 'updateDetectionsByUrl') {
     console.log('🔧 updateDetectionsByUrl received', { detectionsByUrl: message.detectionsByUrl, targetUrl: message.targetUrl });
 
@@ -357,7 +353,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.detectionsByUrl) {
       // Store the detectionsByUrl for the current URL
       currentDetectionsByUrl = message.detectionsByUrl;
-      
+
       // Build URLs with counts from the detectionsByUrl data
       currentUrlsWithCounts = Object.entries(currentDetectionsByUrl).map(([url, detection]) => ({
         url: url,
@@ -367,17 +363,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           html: detection.htmlComponents !== undefined ? detection.htmlComponents.length : '?'
         }
       }));
-      
+
       // Extract all components for the tech list with deduplication
       currentTechs = [];
       const techMap = new Map(); // Use Map to track and merge duplicate technologies
-      
+
       // Combine all technologies from all URLs, merging duplicates by key
       Object.values(currentDetectionsByUrl).forEach(detection => {
         const headerComponents = detection.headerComponents || [];
         const htmlComponents = detection.htmlComponents || [];
         const ipComponents = detection.ipComponents || [];
-        
+
         [...headerComponents, ...htmlComponents, ...ipComponents].forEach(tech => {
           if (!techMap.has(tech.key)) {
             // First occurrence - add as is
@@ -387,18 +383,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             const existing = techMap.get(tech.key);
             const existingTexts = existing.matchedTexts || [];
             const newTexts = tech.matchedTexts || [];
-            
+
             // Combine and deduplicate matchedTexts
             const combinedTexts = [...existingTexts, ...newTexts];
             existing.matchedTexts = [...new Set(combinedTexts)].slice(0, 10); // Dedupe and limit to 10
-            
+
           }
         });
       });
-      
+
       // Convert Map values to array
       currentTechs = Array.from(techMap.values());
-      
+
       // Extract URLs for backward compatibility
       currentAnalyzedUrls = Object.keys(currentDetectionsByUrl);
 
@@ -485,13 +481,9 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   currentTabId = tabId; // Store current tab ID for message filtering
   currentTabUrl = tabUrl; // Store current tab URL
   port = chrome.runtime.connect({ name: 'sidepanel-' + currentTabId });
-  
-  // Show target URL immediately
-  renderTargetUrl();
-    
-  // Show reload suggestion initially (will be hidden if content script responds)
-  showReloadSuggestion();
 
+  // Show target URL immediately
+  renderUnifiedUrls();
   // Request content analysis for this tab now that the panel is ready
   console.log('🚀 Sidepanel requesting content analysis', { tabId });
   try {
@@ -505,10 +497,8 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   } catch (e) {
     console.error('❌ Exception sending analyze message:', e);
   }
-
   // Check reload suggestion after a delay
   setTimeout(() => {
     checkAndUpdateReloadSuggestion();
   }, 2000); // Wait 2 seconds for content script response
-
 });
