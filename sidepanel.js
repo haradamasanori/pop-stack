@@ -280,8 +280,6 @@ function showReloadSuggestion() {
   if (reloadSuggestion) {
     reloadSuggestion.style.display = 'block';
   }
-  // Hide analyzed URLs section when showing reload suggestion
-  document.getElementById('analyzed-urls-section').style.display = 'none';
 }
 
 function hideReloadSuggestion() {
@@ -315,21 +313,28 @@ function renderCombinedList() {
 
   // Build a unified list of all detected technologies
   techList.innerHTML = '';
+  let statusMessage = document.getElementById('status-message');
 
   if (currentTechs.length > 0) {
     currentTechs.forEach(tech => {
       const card = createTechCard(tech);
       techList.appendChild(card);
     });
+    statusMessage.textContent = `${currentTechs.length} component${currentTechs.length !== 1 ? 's' : ''} detected`;
   } else {
     const emptyState = document.createElement('div');
     emptyState.className = 'text-center text-base-content/70 py-8';
-    emptyState.innerHTML = '<p>No technologies detected.</p>';
+    emptyState.innerHTML = '<p>Please try different pages.</p>';
     techList.appendChild(emptyState);
+
+    statusMessage.textContent = 'Detecting';
   }
   // Check reload suggestion after a delay
   setTimeout(() => {
     checkAndUpdateReloadSuggestion();
+    if (currentTechs.length == 0) {
+      statusMessage.textContent = 'No components detected';
+    }
   }, 2000); // Wait 2 seconds for content script response
 }
 
@@ -465,6 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
     reloadButton.addEventListener('click', () => {
       if (currentTabId) {
         chrome.tabs.reload(currentTabId);
+        hideReloadSuggestion();
       }
     });
   }

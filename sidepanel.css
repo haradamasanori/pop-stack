@@ -71,11 +71,11 @@ body {
 }
 
 /* Link styling */
-.card-title a {
+a {
   text-decoration: none;
 }
 
-.card-title a:hover {
+a:hover {
   text-decoration: underline;
 }
 
@@ -111,6 +111,10 @@ main {
   text-overflow: ellipsis;
   max-width: 100%;
   min-width: 0; /* Allow flex items to shrink */
+}
+
+.alert {
+  padding: 0.4rem;
 }
 
 /* Matched text wrapping - force long text to wrap even without spaces */
