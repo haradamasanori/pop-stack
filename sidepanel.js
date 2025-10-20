@@ -299,8 +299,8 @@ function checkAndUpdateReloadSuggestion() {
   const hasHttpDetection = currentUrlDetection && currentUrlDetection.headerComponents !== undefined;
 
 
-  // Show reload suggestion if we have no technologies AND either IP or HTTP detection is missing
-  if (currentTechs.length === 0 && (!hasIpDetection || !hasHttpDetection)) {
+  // Show reload suggestion if either IP or HTTP detection is missing
+  if (!hasIpDetection || !hasHttpDetection) {
     showReloadSuggestion();
   } else {
     hideReloadSuggestion();

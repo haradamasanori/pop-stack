@@ -109,70 +109,61 @@ chrome.runtime.onInstalled.addListener(async () => {
 
 // Load configuration and compile regex patterns
 async function loadConfig() {
-  if (techConfig && ipRangeConfigs) return { techConfig, ipRangeConfigs };
-  
-  try {
-    // Load main technology config
-    if (!techConfig) {
-      const configUrl = chrome.runtime.getURL('config.json');
-      const response = await fetch(configUrl);
-      const rawConfig = await response.json();
-      
-      // Pre-compile regex patterns for performance
-      techConfig = {};
-      Object.entries(rawConfig).forEach(([key, config]) => {
-        techConfig[key] = {
-          ...config,
-          compiledHeaderPatterns: (config.headers || []).map(pattern => {
-            try {
-              return { pattern, regex: new RegExp(pattern, 'i') };
-            } catch (error) {
-              console.warn(`Background: Invalid header regex pattern for ${config.name}:`, pattern, error);
-              return null;
-            }
-          }).filter(Boolean) // Remove null entries from invalid patterns
-        };
-      });
-      
-      console.log('Background: Configuration loaded:', Object.keys(techConfig).length, 'technologies');
-    }
+  // Load main technology config
+  if (!techConfig) {
+    const configUrl = chrome.runtime.getURL('config.json');
+    const response = await fetch(configUrl);
+    const rawConfig = await response.json();
     
-    // Load IP range configs
-    if (!ipRangeConfigs) {
-      const providers = ['aws', 'azure', 'cloudflare', 'fastly', 'gcp', 'akamai'];
-      ipRangeConfigs = {};
-      
-      for (const provider of providers) {
-        try {
-          const ipConfigUrl = chrome.runtime.getURL(`config/${provider}.json`);
-          const response = await fetch(ipConfigUrl);
-          const config = await response.json();
-          
-          // Process and normalize different formats
-          const ranges = processIpRangesForProvider(provider, config);
-          
-          ipRangeConfigs[provider] = {
-            ...config,
-            normalizedRanges: ranges
-          };
-          
-          console.log(`Background: IP ranges loaded for ${provider}:`, ranges.length, 'ranges');
-        } catch (error) {
-          console.warn(`Background: Failed to load IP ranges for ${provider}:`, error);
-          ipRangeConfigs[provider] = { normalizedRanges: [] };
-        }
-      }
-      
-      console.log('Background: IP range configs loaded for', Object.keys(ipRangeConfigs).length, 'providers');
-    }
-    
-    return { techConfig, ipRangeConfigs };
-  } catch (error) {
-    console.error('Background: Failed to load configurations:', error);
-    techConfig = techConfig || {};
-    ipRangeConfigs = ipRangeConfigs || {};
-    return { techConfig, ipRangeConfigs };
+    // Pre-compile regex patterns for performance
+    const tmpTechConfig = {};
+    Object.entries(rawConfig).forEach(([key, config]) => {
+      tmpTechConfig[key] = {
+        ...config,
+        compiledHeaderPatterns: (config.headers || []).map(pattern => {
+          try {
+            return { pattern, regex: new RegExp(pattern, 'i') };
+          } catch (error) {
+            console.warn(`Background: Invalid header regex pattern for ${config.name}:`, pattern, error);
+            return null;
+          }
+        }).filter(Boolean) // Remove null entries from invalid patterns
+      };
+    });
+    techConfig = tmpTechConfig;
+    console.log('Background: Configuration loaded:', Object.keys(tmpTechConfig).length, 'technologies');
   }
+  
+  // Load IP range configs
+  if (!ipRangeConfigs) {
+    const providers = ['aws', 'azure', 'cloudflare', 'fastly', 'gcp', 'akamai'];
+    let tmpIpRangeConfigs = {};
+    
+    for (const provider of providers) {
+      try {
+        const ipConfigUrl = chrome.runtime.getURL(`config/${provider}.json`);
+        const response = await fetch(ipConfigUrl);
+        const config = await response.json();
+        
+        // Process and normalize different formats
+        const ranges = processIpRangesForProvider(provider, config);
+        
+        tmpIpRangeConfigs[provider] = {
+          ...config,
+          normalizedRanges: ranges
+        };
+        
+        console.log(`Background: IP ranges loaded for ${provider}:`, ranges.length, 'ranges');
+      } catch (error) {
+        console.warn(`Background: Failed to load IP ranges for ${provider}:`, error);
+        tmpIpRangeConfigs[provider] = { normalizedRanges: [] };
+      }
+    }
+    ipRangeConfigs = tmpIpRangeConfigs;
+    console.log('Background: IP range configs loaded for', Object.keys(tmpIpRangeConfigs).length, 'providers');
+  }
+  
+  return { techConfig, ipRangeConfigs };
 }
 
 // Helper function to process different IP range formats
@@ -352,15 +343,10 @@ async function detectTechnologiesFromIP(tabId, url, hostname, ipAddress) {
     urlDetection.ipComponents = [];
   }
   
-  // Track detected technologies by key to avoid duplicates
-  const detectedTechKeys = new Set(urlDetection.ipComponents.map(tech => tech.key));
-  
   // Check IP against all provider ranges
   for (const [provider, config] of Object.entries(ipRangeConfigs)) {
-    if (detectedTechKeys.has(provider)) continue; // Already detected
-    
-    const ranges = config.normalizedRanges || [];
     let isDetected = false;
+    const ranges = config.normalizedRanges || [];
     
     for (const range of ranges) {
       if (isIpInCidr(ipAddress, range)) {
@@ -368,10 +354,6 @@ async function detectTechnologiesFromIP(tabId, url, hostname, ipAddress) {
         console.log(`✓ IP ${ipAddress} matches ${provider} range: ${range}`);
         break;
       }
-    }
-    
-    if (!isDetected) {
-      console.log(`❌ IP ${ipAddress} (${ipAddress.includes(':') ? 'IPv6' : 'IPv4'}) does not match any ${provider} ranges`);
     }
     
     if (isDetected) {
@@ -384,13 +366,8 @@ async function detectTechnologiesFromIP(tabId, url, hostname, ipAddress) {
         developer: config.developer || '',
         matchedTexts: [`${hostname} ${ipAddress}`]
       };
-      
-      console.log(`🔑 IP detection key for ${config.name}: "${provider}"`);
-      console.log(`📄 IP detection matched texts: [${detectedTech.matchedTexts.join(', ')}]`);
-      
       urlDetection.ipComponents.push(detectedTech);
-      detectedTechKeys.add(provider);
-      
+
       console.log(`🎯 Detected ${config.name} via IP address ${ipAddress} for ${hostname}`);
     }
   }  
@@ -398,9 +375,9 @@ async function detectTechnologiesFromIP(tabId, url, hostname, ipAddress) {
   // Only send to the panel if it is ready for this tab
   if (readyPanels.has(tabId)) {
     const entry = tabDetections.get(tabId);
-    console.log('📨 Sending IP detection results to ready panel');
     const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
-    chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl, targetUrl: null }, (res) => { });
+    console.log('📨 Sending IP detection results to ready panel', detectionsByUrl);
+    chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl, targetUrl: url }, (res) => { });
   } else {
     console.log('📦 IP detection results stored, panel not ready yet');
   }
@@ -421,7 +398,7 @@ function serializeDetectionsByUrl(detectionsByUrlMap) {
 }
 
 // Helper function to get all technologies and analyzed URLs for a tab
-
+// TODO: not checking if this matches with the current url.
 async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
   if (!tabId || !responseHeaders || !url) return;
   
@@ -494,9 +471,9 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
   
   // Notify side panel if it's open for this tab so UI updates immediately
   if (readyPanels.has(tabId)) {
-    console.log('📨 Sending header detection results to ready panel');
     const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
-    chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl, targetUrl: null }, (res) => { });
+    console.log('📨 Sending header detection results to ready panel', detectionsByUrl);
+    chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl, targetUrl: url }, (res) => { });
   } else {
     console.log('📦 Header detection results stored, panel not ready yet');
   }
@@ -506,7 +483,7 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
 try {
   console.log('Attempting to register webRequest.onHeadersReceived listener', { webRequestAvailable: !!(chrome.webRequest && chrome.webRequest.onHeadersReceived) });
   chrome.webRequest.onHeadersReceived.addListener(
-    (details) => {
+    async (details) => {
       const tabId = details.tabId;
       
       // Only inspect responses for tabs where the side panel is enabled
@@ -516,33 +493,29 @@ try {
 
       console.log('🌐 webRequest.onHeadersReceived', {
         tabId,
+        ip: details.ip,
         url: details.url,
         frameId: details.frameId,
         type: details.type,
         panelReady: readyPanels.has(tabId),
         readyPanels: Array.from(readyPanels)
       });
+      handleUrlChange(tabId, details.url);
 
-      processResponseHeaders(details, tabId);
+      if (details.responseHeaders) {
+        console.log('webRequest.onHeadersReceived', { tabId, url: details.url, responseHeaders: details.responseHeaders });
+        
+        // Process all main-frame responses for HTTP header technology detection
+        // Technologies can be detected from headers regardless of content type
+        await detectTechnologiesFromHeaders(tabId, details.responseHeaders, details.url);
+        
+        // IP detection will be handled by webRequest.onCompleted listener
+      }
     },
     { urls: ['<all_urls>'], types: ['main_frame'] },
     ['responseHeaders', 'extraHeaders']  // include extraHeaders to capture more headers
   );
 
-async function processResponseHeaders(details, tabId) {
-  // We accept main-frame responses for enabled tabs; per-tab URL tracking
-  // is used elsewhere to decide when to clear header detections on origin
-  // changes.
-  if (details.responseHeaders) {
-    console.log('webRequest.onHeadersReceived', { tabId, url: details.url, responseHeaders: details.responseHeaders });
-    
-    // Process all main-frame responses for HTTP header technology detection
-    // Technologies can be detected from headers regardless of content type
-    await detectTechnologiesFromHeaders(tabId, details.responseHeaders, details.url);
-    
-    // IP detection will be handled by webRequest.onCompleted listener
-  }
-}
   console.log('webRequest.onHeadersReceived listener registered');
 } catch (e) {
   console.warn('webRequest.onHeadersReceived not available or blocked', e);
@@ -551,8 +524,7 @@ async function processResponseHeaders(details, tabId) {
 // webRequest.onCompleted listener for IP-based detection
 try {
   console.log('Attempting to register webRequest.onCompleted listener for IP detection');
-  chrome.webRequest.onCompleted.addListener(
-    (details) => {
+  chrome.webRequest.onCompleted.addListener((details) => {
       const tabId = details.tabId;
       
       // Only process main_frame requests for valid tabs
@@ -573,32 +545,21 @@ try {
         type: details.type
       });
 
-      // Only process successful requests with IP addresses
-      if (details.ip && details.statusCode >= 200 && details.statusCode < 400) {
+      // IP address detection runs regardless of HTTP response code.
+      if (details.ip) {
         try {
-          const requestUrl = new URL(details.url);
-          
-          const runIpDetection = () => {
-            if (requestUrl.hostname && requestUrl.hostname !== details.ip) { // Avoid processing raw IP URLs
-              console.log('🔍 Triggering IP detection for', requestUrl.hostname, 'at', details.ip);
-              
-              // Run IP detection asynchronously
-              detectTechnologiesFromIP(tabId, details.url, requestUrl.hostname, details.ip).catch(error => {
-                console.warn('IP detection failed:', error);
-              });
-            }
-          };
-
-          runIpDetection();
-
+          const requestUrl = new URL(details.url);          
+          if (requestUrl.hostname) {
+            console.log('🔍 Triggering IP detection for', requestUrl.hostname, 'at', details.ip);
+            detectTechnologiesFromIP(tabId, details.url, requestUrl.hostname, details.ip);
+          }
         } catch (error) {
-          console.warn('Failed to parse URL for IP detection:', error);
+          console.warn('IP detection failed:', error);
         }
       }
     },
     { urls: ['<all_urls>'], types: ['main_frame'] }
   );
-  
   console.log('webRequest.onCompleted listener registered for IP detection');
 } catch (e) {
   console.warn('webRequest.onCompleted not available or blocked', e);
@@ -633,6 +594,42 @@ chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
   }
 });
 
+function handleUrlChange(tabId, newUrl) {
+  let entry = tabDetections.get(tabId);
+  if (entry && entry.url == newUrl) {
+    console.log('No url change.', { from: entry.url, to: newUrl });
+    return;
+  }
+  // If URL is changing, cache current detections before clearing and updating the URL.
+  if (entry && entry.url !== newUrl) {
+    console.log('🔄 URL changing, caching current detections', { from: entry.url, to: newUrl });
+    cacheCurrentDetections(tabId, entry.url);
+    entry.detectionsByUrl.clear();  // Clone is stored in the cache.
+    entry.url = newUrl;
+  }
+  const cachedDetections = getCachedDetections(tabId, newUrl);
+  if (cachedDetections) {
+    console.log('📦 Restored cached detections for URL:', newUrl);
+    entry.detectionsByUrl = cachedDetections;
+    entry.url = newUrl;
+  }
+  if (!entry) {
+    entry = { url: newUrl, detectionsByUrl: new Map(), recentDetections: [] };
+    tabDetections.set(tabId, entry);
+  }
+
+  // Notify the side panel if it's ready, to clear the view for the new page.
+  if (readyPanels.has(tabId)) {
+    console.log('handleUrlChange -> updateDetectionsByUrl', { tabId, newUrl, entry });
+    const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
+    chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl, targetUrl: newUrl }, (res) => {
+      if (chrome.runtime.lastError) {
+        console.debug('updateDetectionsByUrl message had no receiver on navigate', chrome.runtime.lastError.message);
+      }
+    });
+  }
+}
+
 // Use onBeforeNavigate to capture the new URL as early as possible.
 // This helps ensure that webRequest listeners have the correct "current" URL for the tab.
 chrome.webNavigation.onBeforeNavigate.addListener((details) => {
@@ -644,40 +641,7 @@ chrome.webNavigation.onBeforeNavigate.addListener((details) => {
   }
 
   console.log('🚀 webNavigation.onBeforeNavigate', { tabId, url });
-
-  let entry = tabDetections.get(tabId);
-  if (!entry) {
-    entry = { url: url, detectionsByUrl: new Map(), recentDetections: [] };
-    tabDetections.set(tabId, entry);
-  }
-
-  // If URL is changing, cache current detections before clearing and updating the URL.
-  if (entry.url && entry.url !== url) {
-    console.log('🔄 URL changing, caching current detections', { from: entry.url, to: url });
-    cacheCurrentDetections(tabId, entry.url);
-  }
-  
-  // Update to the new URL and clear old detections or restore from cache.
-  entry.url = url;
-  const cachedDetections = getCachedDetections(tabId, url);
-
-  if (cachedDetections) {
-    console.log('📦 Restored cached detections for URL:', url);
-    entry.detectionsByUrl = cachedDetections;
-  } else {
-    console.log('🧹 No cached detections, clearing detection components for new navigation.');
-    entry.detectionsByUrl.clear();
-  }
-
-  // Notify the side panel if it's ready, to clear the view for the new page.
-  if (readyPanels.has(tabId)) {
-    const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
-    chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl, targetUrl: url }, (res) => {
-      if (chrome.runtime.lastError) {
-        console.debug('updateDetectionsByUrl message had no receiver on navigate', chrome.runtime.lastError.message);
-      }
-    });
-  }
+  handleUrlChange(tabId, url);
 });
 
 chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
@@ -686,16 +650,14 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   // Update the action button state whenever the tab is updated.
   updateActionAndSidePanel(tabId);
 
+  if (info.status === 'loading' && tab.url && readyPanels.has(tabId)) {
+    handleUrlChange(tabId, tab.url);
+    return;
+  }
+
   // When the page has finished loading, send the final detections and
   // trigger the content script to analyze the DOM.
   if (info.status === 'complete' && tab.url && readyPanels.has(tabId)) {
-    const entry = tabDetections.get(tabId);
-    
-    // Send a final update to the side panel.
-    console.log('🔗 Sending final update on navigation complete', { tabId, url: tab.url });
-    const detectionsByUrl = entry ? serializeDetectionsByUrl(entry.detectionsByUrl) : {};
-    chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl, targetUrl: tab.url }, () => { });
-
     // Request content analysis from the content script.
     chrome.tabs.sendMessage(tabId, { action: 'analyze' }, (response) => {
       if (chrome.runtime.lastError) {
@@ -714,8 +676,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const url = sender && sender.tab && sender.tab.url;
     if (tabId && url) {
       let entry = tabDetections.get(tabId);
+      const debugEntry = serializeDetectionsByUrl(entry.detectionsByUrl);
+      console.log('Debug detectedTechs message', { tabId, url, debugEntry, entry });
       if (!entry) {
-        entry = { detectionsByUrl: new Map(), recentDetections: [] };
+        entry = { url: url, detectionsByUrl: new Map(), recentDetections: [] };
         tabDetections.set(tabId, entry);
       }
       
@@ -726,18 +690,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         entry.detectionsByUrl.set(url, urlDetection);
       }
       
-      // Update HTML components for this URL only if there are detections
       const technologies = Array.isArray(message.technologies) ? message.technologies : [];
-      if (technologies.length > 0) {
-        urlDetection.htmlComponents = technologies;
-      }
-      
+      urlDetection.htmlComponents = technologies;
+
       // Get combined results and notify sidepanel if panel is ready
       if (readyPanels.has(tabId)) {
-        const urlCount = entry.detectionsByUrl?.size || 0;
-        console.log('🔧 Background sending updateDetectionsByUrl from detectedTechs message', { tabId, url, urlCount, htmlCount: technologies.length });
         const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
-        chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl, targetUrl: null }, () => { });
+        console.log('🔧 Background sending updateDetectionsByUrl from detectedTechs message', { tabId, url, detectionsByUrl });
+        chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl, targetUrl: url }, () => { });
       }
     }
     return; // handled
