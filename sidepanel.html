@@ -23,17 +23,9 @@
   </header>
   
   <main class="flex-1 overflow-y-auto m-1 p-1 pb-0">
-    <!-- Reload suggestion message -->
-    <div id="reload-suggestion" role="alert" class="alert alert-warning mb-4" style="display: none;">
-      <div>
-        <span>Reload the page to analyze IP and HTTP headers.</span>
-        <button id="reload-button" class="btn btn-sm btn-primary ml-4">⟳ Reload</button>
-      </div>
-    </div>
-
     <!-- Analyzed URLs section -->
     <div id="analyzed-urls-section" class="">
-      <div id="analyzed-urls-list" class="rounded p-2 max-h-32 overflow-y-auto space-y-1 overflow-x-hidden m-1 p-1">
+      <div id="analyzed-urls-list" class="max-h-32 overflow-y-auto space-y-1 overflow-x-hidden m-1 p-1">
         <!-- Analyzed URLs will be listed here -->
       </div>
     </div>
@@ -43,9 +35,14 @@
       <!-- Detected technologies will be listed here -->
     </div>
 
+    <!-- Reload suggestion message -->
+    <div id="reload-suggestion" role="alert" class="whitespace-nowrap m-1 p-1 text-xs text-secondary/90 m-1 p-1 mb-4 mr-2" style="display: none;">
+      <span class="overflow-hidden text-ellipsis whitespace-nowrap">Reload to analyze IP and HTTP headers</span>
+      <button id="reload-button" class="btn btn-xs btn-warning/80 btn-outline text-xs ml-2">⟳ Reload</button>
+    </div>
 
   </main>
-  <footer >
+  <footer>
     <div id="feedback-suggestion" class="mt-4 p-2 text-center text-sm text-base-content/60">
       <div>Missing stacks? Please
       <a target="_blank" href="https://pop-stack.com/" class="link link-secondary">suggest improvements.</a></div>

@@ -322,10 +322,7 @@ function renderCombinedList() {
     });
     statusMessage.textContent = `${currentTechs.length} component${currentTechs.length !== 1 ? 's' : ''} detected`;
   } else {
-    const emptyState = document.createElement('div');
-    emptyState.className = 'text-center text-base-content/70 py-8';
-    emptyState.innerHTML = '<p>Please try different pages.</p>';
-    techList.appendChild(emptyState);
+    techList.innerHTML = '';
 
     statusMessage.textContent = 'Detecting';
   }
@@ -469,7 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (reloadButton) {
     reloadButton.addEventListener('click', () => {
       if (currentTabId) {
-        chrome.tabs.reload(currentTabId);
+        chrome.tabs.reload(currentTabId, {bypassCache: true});
         hideReloadSuggestion();
       }
     });
