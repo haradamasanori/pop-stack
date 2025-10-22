@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Web Stack Spy",
-  "version": "1.0",
+  "version": "1.0.0",
   "description": "Analyzes web page content to detect technologies like frameworks and libraries.",
   "permissions": [
     "scripting",
@@ -18,6 +18,10 @@
   },
   "action": {
     "default_title": "Web Stack Spy"
+  },
+  "icons": {
+    "128": "static/icon128.png",
+    "256": "static/icon256.png"
   },
   "content_scripts": [
     {
