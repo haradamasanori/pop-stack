@@ -7,7 +7,7 @@
 // }
 const tabDetections = new Map(); // tabId -> entry
 // Track which tabs currently have a listening side panel instance
-const readyPanels = new Set();
+const readyPanels = new Map();  // tabId -> port
 // Cache for configuration
 let techConfig = null;
 let ipRangeConfigs = null;
@@ -70,42 +70,47 @@ function getCachedDetections(tabId, url) {
 
 // This function enables or disables the action button and side panel
 // based on the tab's URL.
-const updateActionAndSidePanel = async (tabId) => {
-  if (!tabId || tabId < 0) return; // Guard against invalid tab IDs
-  try {
-    const tab = await chrome.tabs.get(tabId);
-    // The action should only be enabled for http and https pages.
-    if (tab.url && (tab.url.startsWith('http:') || tab.url.startsWith('https:'))) {
-      await chrome.action.enable(tabId);
-      await chrome.sidePanel.setOptions({
-        tabId,
-        path: 'sidepanel.html',
-        enabled: true,
-      });
-    } else {
-      // Disable for other schemes like chrome://, file://, etc.
-      await chrome.action.disable(tabId);
-      await chrome.sidePanel.setOptions({
-        tabId,
-        enabled: false,
-      });
-    }
-  } catch (error) {
-    // This can happen if the tab is closed before we can get its details.
-    // We can safely ignore this error.
-    console.debug(`Could not update action for tab ${tabId}:`, error.message);
-  }
-};
+// const updateActionAndSidePanel = async (tabId) => {
+//   if (!tabId || tabId < 0) return; // Guard against invalid tab IDs
+//   try {
+//     const tab = await chrome.tabs.get(tabId);
+//     // The action should only be enabled for http and https pages.
+//     if (tab.url && (tab.url.startsWith('http:') || tab.url.startsWith('https:'))) {
+//       await chrome.action.enable(tabId);
+//       await chrome.sidePanel.setOptions({
+//         tabId,
+//         path: 'sidepanel.html',
+//         enabled: true,
+//       });
+//     } else {
+//       // Disable for other schemes like chrome://, file://, etc.
+//       await chrome.action.disable(tabId);
+//       await chrome.sidePanel.setOptions({
+//         tabId,
+//         enabled: false,
+//       });
+//     }
+//   } catch (error) {
+//     // This can happen if the tab is closed before we can get its details.
+//     // We can safely ignore this error.
+//     console.debug(`Could not update action for tab ${tabId}:`, error.message);
+//   }
+// };
 
-// On initial installation, set the state for all existing tabs.
-chrome.runtime.onInstalled.addListener(async () => {
-  const tabs = await chrome.tabs.query({});
-  for (const tab of tabs) {
-    if (tab.id) {
-      updateActionAndSidePanel(tab.id);
-    }
-  }
-});
+// // On initial installation, set the state for all existing tabs.
+// chrome.runtime.onInstalled.addListener(async () => {
+//   const tabs = await chrome.tabs.query({});
+//   for (const tab of tabs) {
+//     if (tab.id && tab.url && (tab.url.startsWith('http:') || tab.url.startsWith('https:'))) {
+//       // updateActionAndSidePanel(tab.id);
+//       await chrome.sidePanel.setOptions({
+//         tabId: tab.id,
+//         path: 'sidepanel.html',
+//         enabled: true,
+//       });
+//     }
+//   }
+// });
 
 // Load configuration and compile regex patterns
 async function loadConfig() {
@@ -480,101 +485,101 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
 }
 
 // webRequest listener to inspect response headers
-try {
-  console.log('Attempting to register webRequest.onHeadersReceived listener', { webRequestAvailable: !!(chrome.webRequest && chrome.webRequest.onHeadersReceived) });
-  chrome.webRequest.onHeadersReceived.addListener(
-    async (details) => {
-      const tabId = details.tabId;
+// try {
+//   console.log('Attempting to register webRequest.onHeadersReceived listener', { webRequestAvailable: !!(chrome.webRequest && chrome.webRequest.onHeadersReceived) });
+//   chrome.webRequest.onHeadersReceived.addListener(
+//     async (details) => {
+//       const tabId = details.tabId;
       
-      // Only inspect responses for tabs where the side panel is enabled
-      if (typeof tabId !== 'number' || tabId < 0 || !readyPanels.has(tabId)) {
-        return;
-      }
+//       // Only inspect responses for tabs where the side panel is enabled
+//       if (typeof tabId !== 'number' || tabId < 0 || !readyPanels.has(tabId)) {
+//         return;
+//       }
 
-      console.log('🌐 webRequest.onHeadersReceived', {
-        tabId,
-        ip: details.ip,
-        url: details.url,
-        frameId: details.frameId,
-        type: details.type,
-        panelReady: readyPanels.has(tabId),
-        readyPanels: Array.from(readyPanels)
-      });
-      handleUrlChange(tabId, details.url);
+//       console.log('🌐 webRequest.onHeadersReceived', {
+//         tabId,
+//         ip: details.ip,
+//         url: details.url,
+//         frameId: details.frameId,
+//         type: details.type,
+//         panelReady: readyPanels.has(tabId),
+//         readyPanels: Array.from(readyPanels)
+//       });
+//       handleUrlChange(tabId, details.url);
 
-      if (details.responseHeaders) {
-        console.log('webRequest.onHeadersReceived', { tabId, url: details.url, responseHeaders: details.responseHeaders });
+//       if (details.responseHeaders) {
+//         console.log('webRequest.onHeadersReceived', { tabId, url: details.url, responseHeaders: details.responseHeaders });
         
-        // Process all main-frame responses for HTTP header technology detection
-        // Technologies can be detected from headers regardless of content type
-        await detectTechnologiesFromHeaders(tabId, details.responseHeaders, details.url);
+//         // Process all main-frame responses for HTTP header technology detection
+//         // Technologies can be detected from headers regardless of content type
+//         await detectTechnologiesFromHeaders(tabId, details.responseHeaders, details.url);
         
-        // IP detection will be handled by webRequest.onCompleted listener
-      }
-    },
-    { urls: ['<all_urls>'], types: ['main_frame'] },
-    ['responseHeaders', 'extraHeaders']  // include extraHeaders to capture more headers
-  );
+//         // IP detection will be handled by webRequest.onCompleted listener
+//       }
+//     },
+//     { urls: ['<all_urls>'], types: ['main_frame'] },
+//     ['responseHeaders', 'extraHeaders']  // include extraHeaders to capture more headers
+//   );
 
-  console.log('webRequest.onHeadersReceived listener registered');
-} catch (e) {
-  console.warn('webRequest.onHeadersReceived not available or blocked', e);
-}
+//   console.log('webRequest.onHeadersReceived listener registered');
+// } catch (e) {
+//   console.warn('webRequest.onHeadersReceived not available or blocked', e);
+// }
 
-// webRequest.onCompleted listener for IP-based detection
-try {
-  console.log('Attempting to register webRequest.onCompleted listener for IP detection');
-  chrome.webRequest.onCompleted.addListener((details) => {
-      const tabId = details.tabId;
+// // webRequest.onCompleted listener for IP-based detection
+// try {
+//   console.log('Attempting to register webRequest.onCompleted listener for IP detection');
+//   chrome.webRequest.onCompleted.addListener((details) => {
+//       const tabId = details.tabId;
       
-      // Only process main_frame requests for valid tabs
-      if (typeof tabId !== 'number' || tabId < 0) return;
+//       // Only process main_frame requests for valid tabs
+//       if (typeof tabId !== 'number' || tabId < 0) return;
 
-      // Only analyze when panel is ready for this tab
-      if (!readyPanels.has(tabId)) {
-        console.log('⏭️ Skipping IP analysis - panel not ready for tab', tabId);
-        return;
-      }
+//       // Only analyze when panel is ready for this tab
+//       if (!readyPanels.has(tabId)) {
+//         console.log('⏭️ Skipping IP analysis - panel not ready for tab', tabId);
+//         return;
+//       }
 
-      console.log('🌐 webRequest.onCompleted', {
-        tabId,
-        url: details.url,
-        ip: details.ip,
-        method: details.method,
-        statusCode: details.statusCode,
-        type: details.type
-      });
+//       console.log('🌐 webRequest.onCompleted', {
+//         tabId,
+//         url: details.url,
+//         ip: details.ip,
+//         method: details.method,
+//         statusCode: details.statusCode,
+//         type: details.type
+//       });
 
-      // IP address detection runs regardless of HTTP response code.
-      if (details.ip) {
-        try {
-          const requestUrl = new URL(details.url);          
-          if (requestUrl.hostname) {
-            console.log('🔍 Triggering IP detection for', requestUrl.hostname, 'at', details.ip);
-            detectTechnologiesFromIP(tabId, details.url, requestUrl.hostname, details.ip);
-          }
-        } catch (error) {
-          console.warn('IP detection failed:', error);
-        }
-      }
-    },
-    { urls: ['<all_urls>'], types: ['main_frame'] }
-  );
-  console.log('webRequest.onCompleted listener registered for IP detection');
-} catch (e) {
-  console.warn('webRequest.onCompleted not available or blocked', e);
-}
+//       // IP address detection runs regardless of HTTP response code.
+//       if (details.ip) {
+//         try {
+//           const requestUrl = new URL(details.url);          
+//           if (requestUrl.hostname) {
+//             console.log('🔍 Triggering IP detection for', requestUrl.hostname, 'at', details.ip);
+//             detectTechnologiesFromIP(tabId, details.url, requestUrl.hostname, details.ip);
+//           }
+//         } catch (error) {
+//           console.warn('IP detection failed:', error);
+//         }
+//       }
+//     },
+//     { urls: ['<all_urls>'], types: ['main_frame'] }
+//   );
+//   console.log('webRequest.onCompleted listener registered for IP detection');
+// } catch (e) {
+//   console.warn('webRequest.onCompleted not available or blocked', e);
+// }
 
-// Allow clicking the action to open the side panel for the current tab
-chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch((err) => {
-  // Non-fatal: older Chrome may not support this
-  console.warn('setPanelBehavior failed', err);
-});
+// // Allow clicking the action to open the side panel for the current tab
+// chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch((err) => {
+//   // Non-fatal: older Chrome may not support this
+//   console.warn('setPanelBehavior failed', err);
+// });
 
 // When the user switches tabs, update the action button state.
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   const { tabId } = activeInfo;
-  updateActionAndSidePanel(tabId);
+  // updateActionAndSidePanel(tabId);
   console.log('Tab activated', tabId, 'panel ready for tab?', readyPanels.has(tabId));
 });
 
@@ -645,10 +650,10 @@ chrome.webNavigation.onBeforeNavigate.addListener((details) => {
 });
 
 chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
-  console.log('tab updated', { tabId, info, tab });
+  console.log('chrome.tabs.onUpdated ', { tabId, info, tab });
   
   // Update the action button state whenever the tab is updated.
-  updateActionAndSidePanel(tabId);
+  // updateActionAndSidePanel(tabId);
 
   if (info.status === 'loading' && tab.url && readyPanels.has(tabId)) {
     handleUrlChange(tabId, tab.url);
@@ -676,7 +681,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const url = sender && sender.tab && sender.tab.url;
     if (tabId && url) {
       let entry = tabDetections.get(tabId);
-      const debugEntry = serializeDetectionsByUrl(entry.detectionsByUrl);
+      const debugEntry = (entry && entry.detectionsByUrl) ? serializeDetectionsByUrl(entry.detectionsByUrl) : null;
       console.log('Debug detectedTechs message', { tabId, url, debugEntry, entry });
       if (!entry) {
         entry = { url: url, detectionsByUrl: new Map(), recentDetections: [] };
@@ -707,34 +712,135 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // Listen for connections from other parts of the extension (like the side panel)
 chrome.runtime.onConnect.addListener((port) => {
   // Check if the connection is coming from your side panel
-  if (port.name?.startsWith('sidepanel-')) {
-    const tabId = port.name.split('-')[1] ? parseInt(port.name.split('-')[1], 10) : null;
-    console.log('📡 Side panel connected', { tabId });
+  if (!port.name?.startsWith('sidepanel-')) {
+    return;
+  }
+  const tabId = port.name.split('-')[1] ? parseInt(port.name.split('-')[1], 10) : null;
+  console.log('📡 Side panel connected', { tabId, port });
 
-    if (tabId) {
-      readyPanels.add(tabId);
-      console.log('🎛️ Panel ready for tab', tabId);
-      // send current state for this tab, if present
-      const entry = tabDetections.get(tabId);
-      if (entry) {
-        const urlCount = entry.detectionsByUrl?.size || 0;
-        console.log('📨 Sending stored detections to newly ready panel', { tabId, urlCount });
-        const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
-        chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl, targetUrl: entry.url }, () => { });
-      }
+  if (tabId) {
+    readyPanels.set(tabId, port);
+    console.log('🎛️ Panel ready for tab', tabId);
+    // send current state for this tab, if present
+    const entry = tabDetections.get(tabId);
+    if (entry) {
+      const urlCount = entry.detectionsByUrl?.size || 0;
+      console.log('📨 Sending stored detections to newly ready panel', { tabId, urlCount });
+      const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
+      chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl, targetUrl: entry.url }, () => { });
     }
+  }
 
-    // Add a listener for when the port is disconnected
-    port.onDisconnect.addListener(() => {
-      // This block executes when the side panel is closed by the user,
-      // the tab is closed, or the context is destroyed.
-      console.log(`📡 Side panel disconnected ${tabId}. Executing cleanup...`);
+  // Add a listener for when the port is disconnected
+  port.onDisconnect.addListener(() => {
+    // This block executes when the side panel is closed by the user,
+    // the tab is closed, or the context is destroyed.
+    console.log(`📡 Side panel disconnected ${tabId}. Executing cleanup...`);
 
-      // Remove the tab from readyPanels when panel is closed
-      if (tabId && readyPanels.has(tabId)) {
-        readyPanels.delete(tabId);
-        console.log('🧹 Removed tab from readyPanels due to panel closure', tabId);
+    // Remove the tab from readyPanels when panel is closed
+    if (tabId && readyPanels.has(tabId)) {
+      readyPanels.delete(tabId);
+      console.log('🧹 Removed tab from readyPanels due to panel closure', tabId);
+    }
+  });
+
+  port.onMessage.addListener((message) => {
+    console.log('📨 Message received from side panel', { message });
+    // Handle messages from the side panel if needed
+    if (message.action === 'analyzeHttp') {
+      const { tabId, url } = message;
+
+      // webRequest.onCompleted listener for IP-based detection
+      try {
+        console.log('Background: Attempting to register webRequest.onCompleted listener for IP detection');
+        chrome.webRequest.onCompleted.addListener((details) => {
+            console.log('Background: webRequest.onCompleted', { details });
+
+            // IP address detection runs regardless of HTTP response code.
+            if (details.ip) {
+              try {
+                const requestUrl = new URL(details.url);          
+                if (requestUrl.hostname) {
+                  console.log('Background: Triggering IP detection for', requestUrl.hostname, 'at', details.ip);
+                }
+              } catch (error) {
+                console.warn('IP detection failed:', error);
+              }
+            }
+          },
+          { urls: ['<all_urls>'], tabId: tabId, types: ['main_frame'] }
+        );
+        console.log('Background: webRequest.onCompleted listener registered for IP detection');
+      } catch (e) {
+        console.warn('Background: webRequest.onCompleted not available or blocked', e);
       }
+
+      fetch(url, { method: 'GET' }).then(async (response) => {
+        console.log('Fetched! ', { tabId, url, response });
+        const headers = [];
+        for (const [key, value] of response.headers) {
+          headers.push({ name: key, value });
+        }
+        detectTechnologiesFromHeaders(tabId, headers, url);
+      });
+    }
+  });
+});
+
+console.log('ADDING chrome.action.onClicked handler');
+chrome.action.onClicked.addListener((tab) => {
+  // webRequest.onCompleted listener for IP-based detection
+  try {
+    console.log('onClicked: Attempting to register webRequest.onCompleted listener for IP detection');
+    chrome.webRequest.onCompleted.addListener((details) => {
+        console.log('onClicked: webRequest.onCompleted', { details });
+
+        // IP address detection runs regardless of HTTP response code.
+        if (details.ip) {
+          try {
+            const requestUrl = new URL(details.url);          
+            if (requestUrl.hostname) {
+              console.log('onClicked: Triggering IP detection for', requestUrl.hostname, 'at', details.ip);
+            }
+          } catch (error) {
+            console.warn('IP detection failed:', error);
+          }
+        }
+      },
+      { urls: ['<all_urls>'], tabId: tab.id }
+    );
+    console.log('onClicked: webRequest.onCompleted listener registered for IP detection');
+  } catch (e) {
+    console.warn('onClicked: webRequest.onCompleted not available or blocked', e);
+  }
+
+  // This callback cannot be async for opening the sidepanel with activeTab permission.
+  console.log('chrome.action.onClicked', { tab });
+  if (readyPanels.has(tab.id)) {
+    console.log('Side panel already ready for tab', tab.id);
+    chrome.sidePanel.setOptions({
+      tabId: tab.id,
+      path: 'sidepanel.html',
+      enabled: false,
+    });
+    return;
+    }
+  if (tab.url.startsWith('http:') || tab.url.startsWith('https:')) {
+    chrome.sidePanel.setOptions({
+      tabId: tab.id,
+      path: 'sidepanel.html',
+      enabled: true,
+    });
+    chrome.sidePanel.open({ tabId: tab.id }).then(() => {
+        console.log('Side panel opened for tab', tab.id);
+    });
+    chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ["content.js"],
+    }).then(() => {
+    }).catch((err) => {
+      chrome.action.setBadgeText({ text: 'ERR0: ', tabId: tab.id });
+      chrome.action.setBackgroundColor({ color: '#FF0000', tabId: tab.id });
     });
   }
 });

@@ -1,17 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Web Stack Spy",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Analyzes web page content to detect technologies like frameworks and libraries.",
   "permissions": [
+    "activeTab",
     "scripting",
     "sidePanel",
     "webNavigation",
-    "webRequest",
-    "tabs"
-  ],
-  "host_permissions": [
-    "<all_urls>"
+    "webRequest"
   ],
   "background": {
     "service_worker": "background.js"
@@ -23,13 +20,6 @@
     "128": "static/icon128.png",
     "256": "static/icon256.png"
   },
-  "content_scripts": [
-    {
-      "matches": ["https://*/*", "http://*/*"],
-      "js": ["content.js"],
-      "all_frames": false
-    }
-  ],
   "web_accessible_resources": [
     {
       "resources": ["config.json", "config/*.json"],

@@ -476,7 +476,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // Establish connection to background script for panel closure detection
 var port = null;
 
-// Request the detected technologies when the side panel is opened
+// Request the detected technologies when the side panel is opened.
+// Getting the current tab is possible with activeTab permission.
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   console.log('chrome.tabs.query called', { tabs });
   const tabId = tabs[0].id;
@@ -490,6 +491,7 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   // Request content analysis for this tab now that the panel is ready
   console.log('🚀 Sidepanel requesting content analysis', { tabId });
   try {
+    port.postMessage({ action: 'analyzeHttp', url: tabUrl, tabId: tabId });
     chrome.tabs.sendMessage(tabId, { action: 'analyze' }, (response) => {
       if (chrome.runtime.lastError) {
         console.warn('⚠️ Failed to send analyze message to content script:', chrome.runtime.lastError.message);
@@ -500,8 +502,18 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   } catch (e) {
     console.error('❌ Exception sending analyze message:', e);
   }
+
   // Check reload suggestion after a delay
   setTimeout(() => {
     checkAndUpdateReloadSuggestion();
   }, 2000); // Wait 2 seconds for content script response
 });
+
+try {
+  chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
+    console.log('SIDEPANEL: chrome.tabs.onUpdated ', { tabId, info, tab });
+  });
+} catch (e) {
+  console.error('SIDEPANEL: Error adding tabs.onUpdated listener in sidepanel:', e);
+}
+
