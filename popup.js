@@ -2,8 +2,6 @@ const techList = document.getElementById('tech-list');
 
 // Maintain current state so we can render a merged view
 let currentTechs = [];
-let currentAnalyzedUrls = [];
-let currentUrlsWithCounts = []; // Store URLs with component counts
 let currentTabId = null;
 let currentTabUrl = null;
 let currentDetectionsByUrl = {}; // Store detectionsByUrl for current URL
@@ -193,45 +191,25 @@ function createTechCard(tech) {
 function renderUnifiedUrls() {
   const urlsList = document.getElementById('analyzed-urls-list');
   if (!urlsList) return;
+  // Clear existing content.
+  urlsList.innerHTML = '';
 
-  // Create a map to combine URLs with their counts
-  const urlMap = new Map();
-
-  // Add current tab URL first if it exists
-  if (currentTabUrl) {
-    // Check if we have counts for the target URL, otherwise use "?" for missing detection
-    const targetUrlCounts = currentUrlsWithCounts.find(item => item.url === currentTabUrl);
-    const counts = targetUrlCounts ? targetUrlCounts.counts : { ip: '?', http: '?', html: '?' };
-    urlMap.set(currentTabUrl, counts);
-  }
-
-  // Add analyzed URLs with their counts
-  currentUrlsWithCounts.forEach(item => {
-    urlMap.set(item.url, item.counts);
-  });
-
-  // If we have analyzed URLs but no counts data (fallback for old messages)
-  if (currentUrlsWithCounts.length === 0 && currentAnalyzedUrls.length > 0) {
-    currentAnalyzedUrls.forEach(url => {
-      if (!urlMap.has(url)) {
-        urlMap.set(url, { ip: '?', http: '?', html: '?' });
-      }
-    });
-  }
-
-  if (urlMap.size > 0) {
-    // Clear existing content
-    urlsList.innerHTML = '';
-
-    // Create and append URL items using template
-    Array.from(urlMap.entries()).forEach(([url, counts]) => {
-      const urlItem = createUrlItem(url, counts);
-      urlsList.appendChild(urlItem);
-    });
-    document.getElementById('analyzed-urls-section').style.display = 'block';
-  } else {
+  if (!currentDetectionsByUrl || currentDetectionsByUrl.length === 0) {
     document.getElementById('analyzed-urls-section').style.display = 'none';
+    return;
   }
+
+  // Create and append URL items using template
+  Object.entries(currentDetectionsByUrl).forEach(([url, detection]) => {
+    const counts = {
+      ip: detection.ipComponents !== undefined ? detection.ipComponents.length : '?',
+      http: detection.headerComponents !== undefined ? detection.headerComponents.length : '?',
+      html: detection.htmlComponents !== undefined ? detection.htmlComponents.length : '?'
+    };
+    const urlItem = createUrlItem(url, counts);
+    urlsList.appendChild(urlItem);
+  });
+  document.getElementById('analyzed-urls-section').style.display = 'block';
 }
 
 function truncateUrl(url, maxLength) {
@@ -335,90 +313,66 @@ function renderCombinedList() {
   }, 2000); // Wait 2 seconds for content script response
 }
 
+function updateCombinedList() {
+  // Extract all components for the tech list with deduplication
+  const techMap = new Map(); // Use Map to track and merge duplicate technologies
+
+  // Combine all technologies from all URLs, merging duplicates by key
+  Object.values(currentDetectionsByUrl).forEach(detection => {
+    const headerComponents = detection.headerComponents || [];
+    const htmlComponents = detection.htmlComponents || [];
+    const ipComponents = detection.ipComponents || [];
+
+    [...headerComponents, ...htmlComponents, ...ipComponents].forEach(tech => {
+      if (!techMap.has(tech.key)) {
+        // First occurrence - add as is
+        techMap.set(tech.key, { ...tech });
+      } else {
+        // Duplicate found - merge matchedTexts and detection methods
+        const existing = techMap.get(tech.key);
+        const existingTexts = existing.matchedTexts || [];
+        const newTexts = tech.matchedTexts || [];
+
+        // Combine and deduplicate matchedTexts
+        const combinedTexts = [...existingTexts, ...newTexts];
+        existing.matchedTexts = [...new Set(combinedTexts)].slice(0, 10); // Dedupe and limit to 10
+      }
+    });
+  });
+
+  // Convert Map values to array
+  currentTechs = Array.from(techMap.values());
+
+  return currentTechs
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('onMessage received', { message, sender });
 
   // Only process messages for this tab
-  if (message.tabId && currentTabId && message.tabId !== currentTabId) {
-    return;
+  if (!(message.tabId && currentTabId && message.tabId == currentTabId)) {
+    console.warn('Popup onMessage: Message tabId does not match currentTabId', message);
+    // return;
   }
 
-  if (message.action === 'updateDetectionsByUrl') {
-    console.log('🔧 updateDetectionsByUrl received', { detectionsByUrl: message.detectionsByUrl, targetUrl: message.targetUrl });
-
-    // Update target URL if provided
-    if (message.targetUrl) {
-      console.log('🔗 Updating target URL from combined message', { newUrl: message.targetUrl });
-      currentTabUrl = message.targetUrl;
-    }
-
-    if (message.detectionsByUrl) {
-      // Store the detectionsByUrl for the current URL
-      currentDetectionsByUrl = message.detectionsByUrl;
-
-      // Build URLs with counts from the detectionsByUrl data
-      currentUrlsWithCounts = Object.entries(currentDetectionsByUrl).map(([url, detection]) => ({
-        url: url,
-        counts: {
-          ip: detection.ipComponents !== undefined ? detection.ipComponents.length : '?',
-          http: detection.headerComponents !== undefined ? detection.headerComponents.length : '?',
-          html: detection.htmlComponents !== undefined ? detection.htmlComponents.length : '?'
-        }
-      }));
-
-      // Extract all components for the tech list with deduplication
-      currentTechs = [];
-      const techMap = new Map(); // Use Map to track and merge duplicate technologies
-
-      // Combine all technologies from all URLs, merging duplicates by key
-      Object.values(currentDetectionsByUrl).forEach(detection => {
-        const headerComponents = detection.headerComponents || [];
-        const htmlComponents = detection.htmlComponents || [];
-        const ipComponents = detection.ipComponents || [];
-
-        [...headerComponents, ...htmlComponents, ...ipComponents].forEach(tech => {
-          if (!techMap.has(tech.key)) {
-            // First occurrence - add as is
-            techMap.set(tech.key, { ...tech });
-          } else {
-            // Duplicate found - merge matchedTexts and detection methods
-            const existing = techMap.get(tech.key);
-            const existingTexts = existing.matchedTexts || [];
-            const newTexts = tech.matchedTexts || [];
-
-            // Combine and deduplicate matchedTexts
-            const combinedTexts = [...existingTexts, ...newTexts];
-            existing.matchedTexts = [...new Set(combinedTexts)].slice(0, 10); // Dedupe and limit to 10
-
-          }
-        });
-      });
-
-      // Convert Map values to array
-      currentTechs = Array.from(techMap.values());
-
-      // Extract URLs for backward compatibility
-      currentAnalyzedUrls = Object.keys(currentDetectionsByUrl);
-
-      renderCombinedList();
-    }
-  } else if (message.action === 'clearTechs') {
-    console.log('🧹 clearTechs called - clearing all technologies');
-    currentTechs = [];
-    currentAnalyzedUrls = [];
-    currentUrlsWithCounts = [];
-    currentDetectionsByUrl = {};
-
-    // Update target URL if provided in the message
-    if (message.url && currentTabUrl !== message.url) {
-      console.log('🔄 URL changed', { oldUrl: currentTabUrl, newUrl: message.url });
-      currentTabUrl = message.url;
-    }
-
-    renderCombinedList();
+  if (message.ipComponents) {
+    currentDetectionsByUrl[message.targetUrl] = currentDetectionsByUrl[message.targetUrl] || {};
+    currentDetectionsByUrl[message.targetUrl].ipComponents = message.ipComponents;
   }
-});
 
+  if (message.headerComponents) {
+    currentDetectionsByUrl[message.targetUrl] = currentDetectionsByUrl[message.targetUrl] || {};
+    currentDetectionsByUrl[message.targetUrl].headerComponents = message.headerComponents;
+  }
+
+  if (message.htmlComponents) {
+    currentDetectionsByUrl[message.targetUrl] = currentDetectionsByUrl[message.targetUrl] || {};
+    currentDetectionsByUrl[message.targetUrl].htmlComponents = message.htmlComponents;
+  }
+
+  updateCombinedList();
+  renderCombinedList();
+});  // chrome.runtime.onMessage
 
 
 // Theme management functions
@@ -466,7 +420,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (reloadButton) {
     reloadButton.addEventListener('click', () => {
       if (currentTabId) {
-        chrome.tabs.reload(currentTabId, {bypassCache: true});
+        chrome.tabs.reload(currentTabId, { bypassCache: true });
         hideReloadSuggestion();
       }
     });
@@ -478,42 +432,93 @@ var port = null;
 
 // Request the detected technologies when the side panel is opened.
 // Getting the current tab is possible with activeTab permission.
-chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
   console.log('chrome.tabs.query called', { tabs });
   const tabId = tabs[0].id;
   const tabUrl = tabs[0].url;
   currentTabId = tabId; // Store current tab ID for message filtering
   currentTabUrl = tabUrl; // Store current tab URL
-  port = chrome.runtime.connect({ name: 'sidepanel-' + currentTabId });
+
+  console.log('popup: Injecting content.js into tab', { tabId, tabUrl });
+  chrome.scripting.executeScript({
+    target: { tabId },
+    files: ["content.js"],
+  }).then(() => {
+    console.log('popup: content.js injected while popup opening');
+    chrome.tabs.sendMessage(tabId, { action: 'analyzeHtml', tabId, tabUrl });
+  }).catch((err) => {
+    chrome.action.setBadgeText({ text: 'ERRO: ', tabId: tab.id });
+    chrome.action.setBadgeBackgroundColor({ color: '#FF0000', tabId: tab.id });
+  });
+
+  port = chrome.runtime.connect({ name: 'popup-' + currentTabId });
 
   // Show target URL immediately
   renderUnifiedUrls();
   // Request content analysis for this tab now that the panel is ready
-  console.log('🚀 Sidepanel requesting content analysis', { tabId });
+  console.log('🚀 popup requesting content analysis', { tabId });
   try {
     port.postMessage({ action: 'analyzeHttp', url: tabUrl, tabId: tabId });
-    chrome.tabs.sendMessage(tabId, { action: 'analyze' }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.warn('⚠️ Failed to send analyze message to content script:', chrome.runtime.lastError.message);
-      } else {
-        console.log('✅ Analyze message sent successfully to content script');
-      }
-    });
+    // postMessages doesn't return a resposne. Popup receives results via onMessage listener.
+    // 'analyze' should be sent from the service worker.
+    // chrome.tabs.sendMessage(tabId, { action: 'analyze' }, (response) => {
+    //   if (chrome.runtime.lastError) {
+    //     console.warn('⚠️ Failed to send analyze message to content script:', chrome.runtime.lastError.message);
+    //   } else {
+    //     console.log('✅ Analyze message sent successfully to content script');
+    //   }
+    // });
   } catch (e) {
     console.error('❌ Exception sending analyze message:', e);
   }
 
   // Check reload suggestion after a delay
-  setTimeout(() => {
-    checkAndUpdateReloadSuggestion();
-  }, 2000); // Wait 2 seconds for content script response
+  //setTimeout(() => {
+  //  checkAndUpdateReloadSuggestion();
+  //}, 2000); // Wait 2 seconds for content script response
 });
 
+// Experimenttal: Inject content script on tab updates from popup.
 try {
   chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
-    console.log('SIDEPANEL: chrome.tabs.onUpdated ', { tabId, info, tab });
+    if (!(info && (info.status === 'loading' || info.status === 'complete')))
+      return;
+    currentTabId = tabId;
+    currentTabUrl = tab.url;
+    chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ["content.js"],
+    }).then(() => {
+      console.log('popup: content.js injected successfully on tab update');
+    }).catch((err) => {
+      console.warn('Failed to inject content script:', chrome.runtime.lastError.message);
+      chrome.action.setBadgeText({ text: 'ERR0: ', tabId: tab.id });
+      chrome.action.setBadgeBackgroundColor({ color: '#FF0000', tabId: tab.id });
+    });
   });
 } catch (e) {
-  console.error('SIDEPANEL: Error adding tabs.onUpdated listener in sidepanel:', e);
+  console.error('popup: Error adding tabs.onUpdated listener in popup:', e);
 }
 
+// Experimenttal: webRequest.onCompleted listener from popup.
+// try {
+//   console.log('popup: Attempting to register webRequest.onCompleted listener for IP detection');
+//   chrome.webRequest.onCompleted.addListener((details) => {
+//       console.log('popup: webRequest.onCompleted', { details });
+
+//       // IP address detection runs regardless of HTTP response code.
+//       if (details.ip) {
+//         try {
+//           const requestUrl = new URL(details.url);
+//           console.info('popup: webRequest.onCompleted working:', requestUrl);
+//         } catch (error) {
+//           console.warn('popup: webRequest.onCompleted error:', error);
+//         }
+//       }
+//     },
+//     { urls: ['<all_urls>'], types: ['main_frame'] }
+//   );
+//   console.log('popup: webRequest.onCompleted listener registered for IP detection');
+// } catch (e) {
+//   console.warn('popup: webRequest.onCompleted not available or blocked', e);
+// }
