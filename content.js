@@ -201,6 +201,9 @@ if (window !== window.top) {
   chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     console.log('📨 Content script received message:', message);
     if (message.action === 'analyzeHtml') {
+      // Experimental: fetching the page within content script. This enables getting IP info with webRequest.onComplete handler.
+      //const response = await fetch(message.tabUrl);
+      //console.log('Fetched in content script! ', response);
       console.log('🚀 Received analyze message, calling analyzeContent()');
       await analyzeContent(message.tabId, message.tabUrl);
     } else {

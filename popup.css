@@ -1,10 +1,6 @@
 /* Popup dimensions */
 body {
   width: 600px;
-  min-width: 600px;
-  max-width: 600px;
-  height: 800px;
-  overflow: hidden;
 }
 
 /* Line clamp utility for descriptions */

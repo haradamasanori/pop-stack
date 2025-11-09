@@ -432,29 +432,32 @@ var port = null;
 
 // Request the detected technologies when the side panel is opened.
 // Getting the current tab is possible with activeTab permission.
-chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   console.log('chrome.tabs.query called', { tabs });
   const tabId = tabs[0].id;
   const tabUrl = tabs[0].url;
   currentTabId = tabId; // Store current tab ID for message filtering
   currentTabUrl = tabUrl; // Store current tab URL
 
-  console.log('popup: Injecting content.js into tab', { tabId, tabUrl });
-  chrome.scripting.executeScript({
-    target: { tabId },
-    files: ["content.js"],
-  }).then(() => {
-    console.log('popup: content.js injected while popup opening');
-    chrome.tabs.sendMessage(tabId, { action: 'analyzeHtml', tabId, tabUrl });
-  }).catch((err) => {
-    chrome.action.setBadgeText({ text: 'ERRO: ', tabId: tab.id });
-    chrome.action.setBadgeBackgroundColor({ color: '#FF0000', tabId: tab.id });
-  });
+  // Show target URL immediately
+  renderUnifiedUrls();
+
+  // Popup can inject script and send message but it doesn't seem to work in sidepanel.
+  // console.log('popup: Injecting content.js into tab', { tabId, tabUrl });
+  // chrome.scripting.executeScript({
+  //   target: { tabId },
+  //   files: ["content.js"],
+  // }).then(() => {
+  //   console.log('popup: content.js injected while popup opening');
+  //   chrome.tabs.sendMessage(tabId, { action: 'analyzeHtml', tabId, tabUrl });
+  // }).catch((err) => {
+  //   console.warn('popup: failed to inject content.js into tab', err);
+  //   chrome.action.setBadgeText({ text: 'ERRO: ', tabId });
+  //   chrome.action.setBadgeBackgroundColor({ color: '#FF0000', tabId });
+  // });
 
   port = chrome.runtime.connect({ name: 'popup-' + currentTabId });
 
-  // Show target URL immediately
-  renderUnifiedUrls();
   // Request content analysis for this tab now that the panel is ready
   console.log('🚀 popup requesting content analysis', { tabId });
   try {

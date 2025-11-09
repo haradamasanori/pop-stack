@@ -6,6 +6,7 @@
   "permissions": [
     "activeTab",
     "scripting",
+    "sidePanel",
     "webNavigation",
     "webRequest"
   ],
@@ -13,8 +14,7 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "Web Stack Spy",
-    "default_popup": "popup.html"
+    "default_title": "Web Stack Spy"
   },
   "icons": {
     "128": "static/icon128.png",
@@ -25,6 +25,5 @@
       "resources": ["config.json"],
       "matches": ["https://*/*", "http://*/*"]
     }
-  ],
-  "host_permissions": ["https://dns.google/*"]
+  ]
 }

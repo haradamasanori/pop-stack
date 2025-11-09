@@ -1,3 +1,5 @@
+const readyPanels = new Set();
+
 // Cache for configuration
 let techConfig = null;
 let ipRangeConfigs = null;
@@ -438,26 +440,110 @@ chrome.runtime.onConnect.addListener((port) => {
   });
 });
 
-// NOTE: chrome.action.onClicked.addListener() here doesn't seem to work.
+// It seems the temporary host permission granted by 'activeTab' can be used only in two ways:
+// 1. chrome.action.onClicked handler.
+// 2. scripts on the popup opened automatically with action click. 
+// Sidepanel can be opened automatically with action click. However, it doesn't seem to get
+// the activeTab permission. So we open the sidepanel programmatically in the onClicked handler,
+// We set openPanelOnActionClick to false and don't use "side_panel" in the manifest to disable
+// automatic sidepanel opening.
 console.log('Background: Adding chrome.action.onClicked handler');
 try {
   chrome.action.onClicked.addListener((tab) => {
-    // NOTE: webRequest.onCompleted.addListener() doesn't quite work here.
-    console.log('Executing content script on action click', { tab });
+    console.log('onClicked: Executing content script on action click', { tab });
+
+    if (readyPanels.has(tab.id)) {
+      chrome.sidePanel.setOptions({ tabId: tab.id, enabled: false });
+      readyPanels.delete(tab.id);
+      return;
+    }
+
+    // Registering webRequest.onCompleted handler work within the onClick handler.
+    try {
+      console.log('onClicked: Attempting to register webRequest.onCompleted listener for IP detection');
+      chrome.webRequest.onCompleted.addListener((details) => {
+        console.log('onClicked: webRequest.onCompleted', details);
+
+        // IP address detection runs regardless of HTTP response code.
+        if (details.ip) {
+          try {
+            const requestUrl = new URL(details.url);
+            if (requestUrl.hostname) {
+              console.log('onClicked: Triggering IP detection for', requestUrl.hostname, 'at', details.ip);
+            }
+          } catch (error) {
+            console.warn('onClicked: IP detection failed:', error);
+          }
+        }
+      },
+        // Documentation suggests only main_frame works.
+        // Other types like 'xmlhttprequest' seem to work actually on the same origin.
+        { urls: ['<all_urls>'], tabId: tab.id });  // types: ['main_frame'], 
+      console.log('onClicked: webRequest.onCompleted listener registered for IP detection');
+    } catch (e) {
+      console.warn('onClicked: webRequest.onCompleted not available or blocked', e);
+    }
+
+    // Open sidepanel creating tab-specific sidepanel instance.
+    chrome.sidePanel.setOptions({ tabId: tab.id, path: 'popup.html', enabled: true });
+    chrome.sidePanel.open({ tabId: tab.id }).then(() => {
+      readyPanels.add(tab.id);
+      console.log('onClicked: sidePanel opened for tab', tab.id);
+    });
     chrome.scripting.executeScript({
       target: { tabId: tab.id },
       files: ["content.js"],
     }).then(() => {
+      console.log('onClicked: injected content.js into tab on action click', tab);
       chrome.action.setBadgeText({ text: 'SCR', tabId: tab.id });
+      //chrome.sidePanel.setOptions({tabId: tab.id, path: 'popup.html'});erComponents: headerComponents });
+      chrome.tabs.sendMessage(tab.id, { action: 'analyzeHtml', tabId: tab.id, tabUrl: tab.url });
     }).catch((err) => {
+      console.warn('onClicked: failed to inject content.js into tab on action click', err);
       chrome.action.setBadgeText({ text: 'ERR0: ', tabId: tab.id });
       chrome.action.setBadgeBackgroundColor({ color: '#FF0000', tabId: tab.id });
     });
+
+    console.log('onClicked: fetching ', tab.url);
+    try {
+      fetch(tab.url, { method: 'GET' }).then((response) => {
+        console.log('onClicked: fetched! ', response);
+        const headers = [];
+        for (const [key, value] of response.headers) {
+          headers.push({ name: key, value });
+        }
+        detectTechnologiesFromHeaders(tab.id, headers, tab.url).then((headerComponents) => {
+          chrome.runtime.sendMessage({ action: 'httpResults', tabId: tab.isDetected, targetUrl: tab.url, headerComponents: headerComponents });
+        });
+      }).catch((err) => {
+        console.warn('onClicked: failed to fetch', err);
+      });
+    } catch (e) {
+      console.warn('onClicked: failed to start fetching', e);
+    };
+    //const headerComponents = await detectTechnologiesFromHeaders(tabId, headers, url);
+    //chrome.runtime.sendMessage({ action: 'httpResults', tabId, targetUrl: url, head
   }
   );  // onClicked
 } catch (e) {
   console.warn('Background: chrome.action.onClicked.addListener() failed', e);
 }
+
+// Opening sidePanel with openPanelOnActionClick doesn't seem to grant activeTab permission.
+// try {
+//   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+// } catch (e) {
+//   console.warn('Background: sidePanel API not available', e);
+// }
+
+// Specify sidepanel behavior programmatically instead of in manifest.json.
+try {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
+  chrome.sidePanel.setOptions({ path: 'popup.html', enabled: false });
+} catch (e) {
+  console.warn('Background: sidePanel API not available', e);
+}
+
 
 // try {
 //   console.log('worker: Attempting to register webRequest.onCompleted listener for IP detection');
