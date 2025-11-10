@@ -347,6 +347,7 @@ chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
   console.log('Tab removed', removeInfo);
 });
 
+/*
 // Use onBeforeNavigate to capture the new URL as early as possible.
 // To my surprise, this appears to work with activeTab permission. However, it mostly captures
 // sub_frame navigations rather than main_frame navigations and ip address is missing.
@@ -372,21 +373,20 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
     });
   }
 });
+*/
 
-// content script should directly send HTML analysis results to popup.
-// chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-//   console.log('onMessage received', { message, sender });
-//   // Store detections sent from content scripts so background can serve them
-//   // directly to the side panel without needing an immediate tabs.sendMessage.
-//   if (message.action === 'detectedTechs') {
-//     const tabId = message.tabId || (sender && sender.tab && sender.tab.id);
-//     const url = sender && sender.tab && sender.tab.url;
-//     const technologies = Array.isArray(message.technologies) ? message.technologies : [];
+// Detect httpComponents from headers from fetch() in the content script. Pass them along to the side panel.
+chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+  console.log('Background: chrome.runtime.onMessage received', { message, sender });
+  if (message.action === 'fetchedHeaders') {
+    const { tabId, tabUrl } = message;
+    const headerComponents = await detectTechnologiesFromHeaders(tabId, message.headers, tabUrl);
+    chrome.runtime.sendMessage({ tabId, targetUrl: tabUrl, action: 'headerResults', headerComponents });
+  }
+});
 
-//     chrome.runtime.sendMessage({ tabId, targetUrl: url, htmlComponents: technologies });
-//   }
-// });
 
+/*
 // Establish port connection from popup.html. Inject content script and start HTML analysis.
 chrome.runtime.onConnect.addListener((port) => {
   // Check if the connection is coming from your side panel
@@ -439,6 +439,7 @@ chrome.runtime.onConnect.addListener((port) => {
     // port.onMessage handler doesn't need to return a response.
   });
 });
+*/
 
 // It seems the temporary host permission granted by 'activeTab' can be used only in two ways:
 // 1. chrome.action.onClicked handler.
@@ -458,7 +459,8 @@ try {
       return;
     }
 
-    // Registering webRequest.onCompleted handler work within the onClick handler.
+    // Registering webRequest.onCompleted listener works within the onClick handler.
+    // Adding a listener within a listener is discouraged with Manifest v3 but this is the only way.
     try {
       console.log('onClicked: Attempting to register webRequest.onCompleted listener for IP detection');
       chrome.webRequest.onCompleted.addListener((details) => {
@@ -466,19 +468,17 @@ try {
 
         // IP address detection runs regardless of HTTP response code.
         if (details.ip) {
-          try {
-            const requestUrl = new URL(details.url);
-            if (requestUrl.hostname) {
-              console.log('onClicked: Triggering IP detection for', requestUrl.hostname, 'at', details.ip);
-            }
-          } catch (error) {
+          detectTechnologiesFromIP(details.url, details.ip).then((ipComponents) => {
+            console.log('onClicked: IP detection results:', ipComponents);
+            chrome.runtime.sendMessage({ action: 'ipResults', tabId: tab.id, targetUrl: details.url, ipComponents });
+          }).catch((error) => {
             console.warn('onClicked: IP detection failed:', error);
-          }
+          });
         }
       },
         // Documentation suggests only main_frame works.
         // Other types like 'xmlhttprequest' seem to work actually on the same origin.
-        { urls: ['<all_urls>'], tabId: tab.id });  // types: ['main_frame'], 
+        { urls: ['<all_urls>'], tabId: tab.id });  // types: ['main_frame'] 
       console.log('onClicked: webRequest.onCompleted listener registered for IP detection');
     } catch (e) {
       console.warn('onClicked: webRequest.onCompleted not available or blocked', e);
@@ -497,30 +497,32 @@ try {
       console.log('onClicked: injected content.js into tab on action click', tab);
       chrome.action.setBadgeText({ text: 'SCR', tabId: tab.id });
       //chrome.sidePanel.setOptions({tabId: tab.id, path: 'popup.html'});erComponents: headerComponents });
-      chrome.tabs.sendMessage(tab.id, { action: 'analyzeHtml', tabId: tab.id, tabUrl: tab.url });
+      // Injecting script twice doesn't seem to fail for executeScript().
+      // chrome.tabs.sendMessage(tab.id, { action: 'fetchAndAnalyzeHtml', tabId: tab.id, tabUrl: tab.url });
     }).catch((err) => {
       console.warn('onClicked: failed to inject content.js into tab on action click', err);
       chrome.action.setBadgeText({ text: 'ERR0: ', tabId: tab.id });
       chrome.action.setBadgeBackgroundColor({ color: '#FF0000', tabId: tab.id });
     });
 
-    console.log('onClicked: fetching ', tab.url);
-    try {
-      fetch(tab.url, { method: 'GET' }).then((response) => {
-        console.log('onClicked: fetched! ', response);
-        const headers = [];
-        for (const [key, value] of response.headers) {
-          headers.push({ name: key, value });
-        }
-        detectTechnologiesFromHeaders(tab.id, headers, tab.url).then((headerComponents) => {
-          chrome.runtime.sendMessage({ action: 'httpResults', tabId: tab.isDetected, targetUrl: tab.url, headerComponents: headerComponents });
-        });
-      }).catch((err) => {
-        console.warn('onClicked: failed to fetch', err);
-      });
-    } catch (e) {
-      console.warn('onClicked: failed to start fetching', e);
-    };
+    // TODO: Move it to content script.
+    // console.log('onClicked: fetching ', tab.url);
+    // try {
+    //   fetch(tab.url, { method: 'GET' }).then((response) => {
+    //     console.log('onClicked: fetched! ', response);
+    //     const headers = [];
+    //     for (const [key, value] of response.headers) {
+    //       headers.push({ name: key, value });
+    //     }
+    //     detectTechnologiesFromHeaders(tab.id, headers, tab.url).then((headerComponents) => {
+    //       chrome.runtime.sendMessage({ action: 'httpResults', tabId: tab.isDetected, targetUrl: tab.url, headerComponents: headerComponents });
+    //     });
+    // }).catch((err) => {
+    //     console.warn('onClicked: failed to fetch', err);
+    //   });
+    // } catch (e) {
+    //   console.warn('onClicked: failed to start fetching', e);
+    // };
     //const headerComponents = await detectTechnologiesFromHeaders(tabId, headers, url);
     //chrome.runtime.sendMessage({ action: 'httpResults', tabId, targetUrl: url, head
   }

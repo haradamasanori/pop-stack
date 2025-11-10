@@ -347,12 +347,14 @@ function updateCombinedList() {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('onMessage received', { message, sender });
+  console.log('sidepanel onMessage received ' + message.action, { message, sender });
 
+  if (!message.targetUrl) { return; }
+  
   // Only process messages for this tab
-  if (!(message.tabId && currentTabId && message.tabId == currentTabId)) {
-    console.warn('Popup onMessage: Message tabId does not match currentTabId', message);
-    // return;
+  if (!(message.tabId && currentTabId && message.tabId === currentTabId)) {
+    console.warn('sidepanel onMessage: Message tabId does not match currentTabId', message);
+    return;
   }
 
   if (message.ipComponents) {
@@ -427,6 +429,34 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+  console.log('chrome.tabs.query called', { tabs });
+  const tabId = tabs[0].id;
+  const tabUrl = tabs[0].url;
+  currentTabId = tabId; // Store current tab ID for message filtering
+  currentTabUrl = tabUrl; // Store current tab URL
+
+  // Show target URL immediately
+  renderUnifiedUrls();
+  // Experimental: call content script from sidepanel to ensure sidepanel is ready.
+  chrome.tabs.sendMessage(tabId, { action: 'fetchAndAnalyzeHtml', tabId, tabUrl });
+});
+
+try {
+  chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
+    if (tabId !== currentTabId)
+      return;
+    if (currentTabUrl !== tab.url) {
+      console.log('URL changed in current tab: ', { oldUrl: currentTabUrl, newUrl: tab.url });
+      currentTabUrl = tab.url;
+    }
+  });
+} catch (e) {
+  console.error('popup: Error adding tabs.onUpdated listener in popup:', e);
+}
+
+
+/*
 // Establish connection to background script for panel closure detection
 var port = null;
 
@@ -474,34 +504,35 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   } catch (e) {
     console.error('❌ Exception sending analyze message:', e);
   }
-
+ 
   // Check reload suggestion after a delay
   //setTimeout(() => {
   //  checkAndUpdateReloadSuggestion();
   //}, 2000); // Wait 2 seconds for content script response
 });
+*/
 
 // Experimenttal: Inject content script on tab updates from popup.
-try {
-  chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
-    if (!(info && (info.status === 'loading' || info.status === 'complete')))
-      return;
-    currentTabId = tabId;
-    currentTabUrl = tab.url;
-    chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      files: ["content.js"],
-    }).then(() => {
-      console.log('popup: content.js injected successfully on tab update');
-    }).catch((err) => {
-      console.warn('Failed to inject content script:', chrome.runtime.lastError.message);
-      chrome.action.setBadgeText({ text: 'ERR0: ', tabId: tab.id });
-      chrome.action.setBadgeBackgroundColor({ color: '#FF0000', tabId: tab.id });
-    });
-  });
-} catch (e) {
-  console.error('popup: Error adding tabs.onUpdated listener in popup:', e);
-}
+// try {
+//   chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
+//     if (!(info && (info.status === 'loading' || info.status === 'complete')))
+//       return;
+//     currentTabId = tabId;
+//     currentTabUrl = tab.url;
+//     chrome.scripting.executeScript({
+//       target: { tabId: tab.id },
+//       files: ["content.js"],
+//     }).then(() => {
+//       console.log('popup: content.js injected successfully on tab update');
+//     }).catch((err) => {
+//       console.warn('Failed to inject content script:', err, chrome.runtime.lastError);
+//       chrome.action.setBadgeText({ text: 'ERR0: ', tabId: tab.id });
+//       chrome.action.setBadgeBackgroundColor({ color: '#FF0000', tabId: tab.id });
+//     });
+//   });
+// } catch (e) {
+//   console.error('popup: Error adding tabs.onUpdated listener in popup:', e);
+// }
 
 // Experimenttal: webRequest.onCompleted listener from popup.
 // try {
