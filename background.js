@@ -478,7 +478,7 @@ try {
       },
         // Documentation suggests only main_frame works.
         // Other types like 'xmlhttprequest' seem to work actually on the same origin.
-        { urls: ['<all_urls>'], tabId: tab.id });  // types: ['main_frame'] 
+        { urls: ['<all_urls>'], types: ['main_frame', 'sub_frame', 'xmlhttprequest'], tabId: tab.id });
       console.log('onClicked: webRequest.onCompleted listener registered for IP detection');
     } catch (e) {
       console.warn('onClicked: webRequest.onCompleted not available or blocked', e);
