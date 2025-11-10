@@ -449,6 +449,27 @@ try {
     if (currentTabUrl !== tab.url) {
       console.log('URL changed in current tab: ', { oldUrl: currentTabUrl, newUrl: tab.url });
       currentTabUrl = tab.url;
+      // Close the sidepanel instance for this tab.
+      chrome.sidePanel.setOptions({ tabId, enabled: false });
+      // TODO: we may be able to keep the sidepanel open if the hostname stays the same.
+      // This adds a fair amount of complexity.
+      // chrome.scripting.executeScript({
+      //   target: { tabId: tab.id },
+      //   files: ["content.js"],
+      // }).then(() => {
+      //   console.log('sidepanel: content.js injected successfully on tab URL update');
+      //   techList.innerHTML = '';
+      //   statusMessage.textContent = 'New page detected';
+      //   renderUnifiedUrls();
+      //   renderCombinedList();
+      //   // Experimental: call content script from sidepanel to ensure sidepanel is ready.
+      //   chrome.tabs.sendMessage(tabId, { action: 'fetchAndAnalyzeHtml', tabId, tabUrl: currentTabUrl });
+      // }).catch((err) => {
+      //   chrome.sidePanel.setOptions({ enabled: false });
+      //   console.warn('sidepanel: Failed to inject content script:', err, chrome.runtime.lastError);
+      //   chrome.action.setBadgeText({ text: 'EURL: ', tabId: tab.id });
+      //   chrome.action.setBadgeBackgroundColor({ color: '#FF0000', tabId: tab.id });
+      // });
     }
   });
 } catch (e) {
