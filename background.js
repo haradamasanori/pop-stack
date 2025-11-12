@@ -299,7 +299,7 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
   // Iterate through all configured technologies that have compiled header patterns
   Object.entries(techConfig).forEach(([key, config]) => {
     const { name, compiledHeaderPatterns = [] } = config;
-    const matchedTexts = [];
+    const matchedTexts = new Set();
 
     // Skip if already detected for this URL
     if (detectedTechKeys.has(key)) return;
@@ -307,14 +307,13 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
     // Check compiled header patterns against each header line
     for (const { pattern, regex } of compiledHeaderPatterns) {
       // Test pattern against all header lines and collect matches
-      const matchedHeaders = headerStrings.filter(headerLine => regex.test(headerLine));
-      if (matchedHeaders.length > 0) {
-        matchedTexts.push(...matchedHeaders);
-      }
+      headerStrings.filter(headerLine => regex.test(headerLine)).forEach(line => {
+        matchedTexts.add(line);
+      });
     }
 
     // If we found any matches, add the technology with all matched headers
-    if (matchedTexts.length > 0) {
+    if (matchedTexts.size > 0) {
       const detectedTech = {
         key,
         name,
@@ -322,7 +321,7 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
         link: config.link || '',
         tags: config.tags || [],
         developer: config.developer || '',
-        matchedTexts: [...new Set(matchedTexts)] // Remove duplicates
+        matchedTexts: [...matchedTexts]
       };
 
       console.log(`🔑 HTTP detection key for ${name}: "${key}"`);
@@ -330,7 +329,7 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
 
       headerComponents.push(detectedTech);
       detectedTechKeys.add(key);
-      console.log(`Background: Detected ${name} via header patterns for ${url} (matched: ${matchedTexts.join(', ')})`);
+      console.log(`Background: Detected ${name} via header patterns for ${url} (matched: ${detectedTech.matchedTexts.join(', ')})`);
     }
   });
 
@@ -459,7 +458,7 @@ try {
       return;
     }
 
-    // Registering webRequest.onCompleted listener works within the onClick handler.
+    // Registering webRequest.onCompleted listener works within the onClick listener.
     // Adding a listener within a listener is discouraged with Manifest v3 but this is the only way.
     try {
       console.log('onClicked: Attempting to register webRequest.onCompleted listener for IP detection');
@@ -470,15 +469,22 @@ try {
         if (details.ip) {
           detectTechnologiesFromIP(details.url, details.ip).then((ipComponents) => {
             console.log('onClicked: IP detection results:', ipComponents);
-            chrome.runtime.sendMessage({ action: 'ipResults', tabId: tab.id, targetUrl: details.url, ipComponents });
+            chrome.runtime.sendMessage({ action: 'ipResults', tabId: details.tabId, targetUrl: details.url, ipComponents });
           }).catch((error) => {
             console.warn('onClicked: IP detection failed:', error);
+          });
+        }
+        if (details.responseHeaders) {
+          detectTechnologiesFromHeaders(details.tabId, details.responseHeaders, details.url).then((headerComponents) => {
+            console.log('onClicked: Header detection results:', headerComponents);
+            chrome.runtime.sendMessage({ tabId: details.tabId, targetUrl: details.url, action: 'headerResults', headerComponents });
           });
         }
       },
         // Documentation suggests only main_frame works.
         // Other types like 'xmlhttprequest' seem to work actually on the same origin.
-        { urls: ['<all_urls>'], types: ['main_frame', 'sub_frame', 'xmlhttprequest'], tabId: tab.id });
+        { urls: ['https://*/*', 'http://*/*'], types: ['main_frame', 'sub_frame', 'xmlhttprequest'], tabId: tab.id },
+        ['responseHeaders']);
       console.log('onClicked: webRequest.onCompleted listener registered for IP detection');
     } catch (e) {
       console.warn('onClicked: webRequest.onCompleted not available or blocked', e);
