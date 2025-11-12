@@ -172,7 +172,8 @@ if (window !== window.top || window.webStackSpyContentScriptInjected) {
         console.error('config is not ready. Skipping analysis.');
         return;
       }
-      // Fetch the page within content script. This enables getting IP info with webRequest.onComplete handler in background.js.
+      // Fetch the page within content script. This enables getting IP info with webRequest.onComplete in background.js.
+      // fetch() can be called in the service worker too but the IP field is missing in the response.
       fetch(tabUrl).then((response) => {
         console.log('Fetched in content script! ', response);
         const headers = [];

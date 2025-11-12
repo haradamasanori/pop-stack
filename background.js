@@ -303,9 +303,6 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
       console.log(`Background: Detected ${name} via header patterns for ${url} (matched: ${detectedTech.matchedTexts.join(', ')})`);
     }
   });
-
-  // console.log('📨 Sending header detection results to ready panel', detectionsByUrl);
-  // chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl, targetUrl: url }, (res) => { });
   return headerComponents;
 }
 
@@ -315,25 +312,28 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message.action === 'fetchedHeaders') {
     const { tabId, tabUrl } = message;
     const headerComponents = await detectTechnologiesFromHeaders(tabId, message.headers, tabUrl);
-    chrome.runtime.sendMessage({ tabId, targetUrl: tabUrl, action: 'headerResults', headerComponents });
+    // Send results if the sidepanel is still open.
+    if (readyPanels.has(tabId)) {
+      chrome.runtime.sendMessage({ tabId, targetUrl: tabUrl, action: 'headerResults', headerComponents });
+    }
   }
 });
 
 // It seems the temporary host permission granted by 'activeTab' can be used only in two ways:
 // 1. chrome.action.onClicked handler.
-// 2. scripts on the popup opened automatically with action click. 
-// Sidepanel can be opened automatically with action click if we use openPanelOnActionClick: true.
-// However, it doesn't seem to get the activeTab permission. So we open the sidepanel programmatically in the onClicked handler,
-// We set openPanelOnActionClick to false and don't use "side_panel" in the manifest to disable
-// automatic sidepanel opening.
+// 2. scripts in the popup opened automatically with action click. 
+// Sidepanel can be opened automatically with action click too if we use openPanelOnActionClick: true.
+// However, it doesn't seem to get the activeTab permission. So we open the sidepanel programmatically 
+// in the onClicked handler. We set openPanelOnActionClick to false and don't use "side_panel" in the 
+// manifest to disable automatic sidepanel opening.
 console.log('Background: Adding chrome.action.onClicked handler');
 try {
   chrome.action.onClicked.addListener((tab) => {
-    console.log('onClicked: Executing content script on action click', { tab });
+    console.log('onClicked: listener begin', tab);
 
     if (readyPanels.has(tab.id)) {
-      chrome.sidePanel.setOptions({ tabId: tab.id, enabled: false });
       readyPanels.delete(tab.id);
+      chrome.sidePanel.setOptions({ tabId: tab.id, enabled: false });
       return;
     }
 
@@ -349,7 +349,10 @@ try {
         if (details.ip) {
           detectTechnologiesFromIP(details.url, details.ip).then((ipComponents) => {
             console.log('onClicked: IP detection results:', ipComponents);
-            chrome.runtime.sendMessage({ action: 'ipResults', tabId: details.tabId, targetUrl: details.url, ipComponents });
+            // Send results if the sidepanel is still open.
+            if (readyPanels.has(details.tabId)) {
+              chrome.runtime.sendMessage({ action: 'ipResults', tabId: details.tabId, targetUrl: details.url, ipComponents });
+            }
           }).catch((error) => {
             console.warn('onClicked: IP detection failed:', error);
           });
@@ -357,36 +360,42 @@ try {
         if (details.responseHeaders) {
           detectTechnologiesFromHeaders(details.tabId, details.responseHeaders, details.url).then((headerComponents) => {
             console.log('onClicked: Header detection results:', headerComponents);
-            chrome.runtime.sendMessage({ tabId: details.tabId, targetUrl: details.url, action: 'headerResults', headerComponents });
+            // Send results if the sidepanel is still open.
+            if (readyPanels.has(details.tabId)) {
+              chrome.runtime.sendMessage({ tabId: details.tabId, targetUrl: details.url, action: 'headerResults', headerComponents });
+            }
           });
         }
       },
-        { urls: ['https://*/*', 'http://*/*'],
-        // Documentation suggests only main_frame works with activeTab but
-        // other types like 'xmlhttprequest' seem to work actually on the same origin.
-          types: ['main_frame', 'sub_frame', 'xmlhttprequest'], tabId: tab.id },
+        {
+          urls: ['https://*/*', 'http://*/*'],
+          // Documentation suggests only main_frame works with activeTab but
+          // other types like 'xmlhttprequest' actually work on the same origin.
+          types: ['main_frame', 'sub_frame', 'xmlhttprequest'], tabId: tab.id
+        },
         ['responseHeaders']);
       console.log('onClicked: webRequest.onCompleted listener registered for IP detection');
     } catch (e) {
       console.warn('onClicked: webRequest.onCompleted not available or blocked', e);
     }
-
-    // Open sidepanel creating tab-specific sidepanel instance.
-    chrome.sidePanel.setOptions({ tabId: tab.id, path: 'popup.html', enabled: true });
-    chrome.sidePanel.open({ tabId: tab.id }).then(() => {
-      readyPanels.add(tab.id);
-      console.log('onClicked: sidePanel opened for tab', tab.id);
-    });
     chrome.scripting.executeScript({
       target: { tabId: tab.id },
       files: ["content.js"],
     }).then(() => {
       console.log('onClicked: injected content.js into tab on action click', tab);
-      //chrome.action.setBadgeText({ text: 'SCR', tabId: tab.id });
     }).catch((err) => {
       console.warn('onClicked: failed to inject content.js into tab on action click', err);
-      //chrome.action.setBadgeText({ text: 'ERR0: ', tabId: tab.id });
-      //chrome.action.setBadgeBackgroundColor({ color: '#FF0000', tabId: tab.id });
+    });
+    // Open sidepanel creating tab-specific sidepanel instance.
+    // Known issue: action click sometimes doesn't open sidebar if the current page is still loading.
+    chrome.sidePanel.setOptions({ tabId: tab.id, path: 'sidepanel.html', enabled: true }).catch((err) => {
+      console.warn('onClicked: sidePanel.setOptions failed before opening sidepanel', err);
+    });
+    chrome.sidePanel.open({ tabId: tab.id }).then(() => {
+      readyPanels.add(tab.id);
+      console.log('onClicked: sidePanel opened for tab', tab.id);
+    }).catch((err) => {
+      console.warn('onClicked: sidePanel failed to open', err);
     });
   }
   );  // onClicked
@@ -397,7 +406,7 @@ try {
 // Specify sidepanel behavior programmatically instead of in manifest.json.
 try {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
-  chrome.sidePanel.setOptions({ path: 'popup.html', enabled: false });
+  chrome.sidePanel.setOptions({ path: 'sidepanel.html', enabled: false });
 } catch (e) {
   console.warn('Background: sidePanel API not available', e);
 }

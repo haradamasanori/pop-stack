@@ -392,8 +392,10 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
 
   // Show target URL immediately
   renderUnifiedUrls();
-  // Experimental: call content script from sidepanel to ensure sidepanel is ready.
-  chrome.tabs.sendMessage(tabId, { action: 'fetchAndAnalyzeHtml', tabId, tabUrl });
+  // Call content script from sidepanel to ensure sidepanel is ready.
+  chrome.tabs.sendMessage(tabId, { action: 'fetchAndAnalyzeHtml', tabId, tabUrl }).catch((err) => {
+    console.warn('Failed to request fetchAndAnalyzeHtml from side panel.', err);
+  });
 });
 
 // Close sidepanel if url of the tab changes.
@@ -408,6 +410,8 @@ try {
       chrome.sidePanel.setOptions({ tabId, enabled: false });
       // TODO: we may be able to keep the sidepanel open if the hostname stays the same.
       // This add a fair amount of complexity.
+    } else {
+      console.log('tabs.onUpdated', { tabId, info, tab });
     }
   });
 } catch (e) {
