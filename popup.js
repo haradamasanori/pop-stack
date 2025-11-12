@@ -1,5 +1,3 @@
-const techList = document.getElementById('tech-list');
-
 // Maintain current state so we can render a merged view
 let currentTechs = [];
 let currentTabId = null;
@@ -15,9 +13,6 @@ function createUrlItem(url, counts) {
   const urlElement = item.querySelector('[data-url]');
   const countsElement = item.querySelector('[data-counts]');
 
-  // Truncate long URLs with ellipsis in the middle to preserve domain and path
-  const truncatedUrl = truncateUrl(url, 60);
-
   // Format component counts - only show counts that exist
   const countParts = [];
   if (counts.ip !== undefined) countParts.push(`IP ${counts.ip}`);
@@ -26,7 +21,7 @@ function createUrlItem(url, counts) {
   const countsText = countParts.join(', ');
 
   // Set content
-  urlElement.textContent = truncatedUrl;
+  urlElement.textContent = url;
   urlElement.title = url;
   countsElement.textContent = countsText;
 
@@ -212,47 +207,6 @@ function renderUnifiedUrls() {
   document.getElementById('analyzed-urls-section').style.display = 'block';
 }
 
-function truncateUrl(url, maxLength) {
-  if (url.length <= maxLength) return url;
-
-  try {
-    const urlObj = new URL(url);
-    const protocol = urlObj.protocol; // e.g., "https:"
-    const hostname = urlObj.hostname; // e.g., "example.com"
-    const protocolAndHost = protocol + '//' + hostname; // e.g., "https://example.com"
-    const pathAndQuery = urlObj.pathname + urlObj.search + urlObj.hash;
-
-    // If just the protocol + hostname is too long, truncate the hostname part
-    if (protocolAndHost.length >= maxLength - 3) {
-      const protocolPart = protocol + '//'; // e.g., "https://"
-      const availableForHost = maxLength - protocolPart.length - 3; // 3 chars for "..."
-      if (availableForHost > 0) {
-        return protocolPart + hostname.substring(0, availableForHost) + '...';
-      } else {
-        // If even protocol is too long, just truncate the whole URL
-        return url.substring(0, maxLength - 3) + '...';
-      }
-    }
-
-    // Calculate how much space we have for the path
-    const availableForPath = maxLength - protocolAndHost.length - 3; // 3 chars for "..."
-
-    if (pathAndQuery.length <= availableForPath) {
-      return protocolAndHost + pathAndQuery;
-    }
-
-    // Truncate path from the middle, keeping start and end
-    const pathStart = pathAndQuery.substring(0, Math.floor(availableForPath / 2));
-    const pathEnd = pathAndQuery.substring(pathAndQuery.length - Math.floor(availableForPath / 2));
-
-    return protocolAndHost + pathStart + '...' + pathEnd;
-  } catch (e) {
-    // Fallback for invalid URLs
-    return url.substring(0, maxLength - 3) + '...';
-  }
-}
-
-
 function showReloadSuggestion() {
   const reloadSuggestion = document.getElementById('reload-suggestion');
   if (reloadSuggestion) {
@@ -276,7 +230,6 @@ function checkAndUpdateReloadSuggestion() {
   const hasIpDetection = currentUrlDetection && currentUrlDetection.ipComponents !== undefined;
   const hasHttpDetection = currentUrlDetection && currentUrlDetection.headerComponents !== undefined;
 
-
   // Show reload suggestion if either IP or HTTP detection is missing
   if (!hasIpDetection || !hasHttpDetection) {
     showReloadSuggestion();
@@ -290,6 +243,7 @@ function renderCombinedList() {
   renderUnifiedUrls();
 
   // Build a unified list of all detected technologies
+  const techList = document.getElementById('tech-list');
   techList.innerHTML = '';
   let statusMessage = document.getElementById('status-message');
 
@@ -442,6 +396,7 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   chrome.tabs.sendMessage(tabId, { action: 'fetchAndAnalyzeHtml', tabId, tabUrl });
 });
 
+// Close sidepanel if url of the tab changes.
 try {
   chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
     if (tabId !== currentTabId)
@@ -452,128 +407,9 @@ try {
       // Close the sidepanel instance for this tab.
       chrome.sidePanel.setOptions({ tabId, enabled: false });
       // TODO: we may be able to keep the sidepanel open if the hostname stays the same.
-      // This adds a fair amount of complexity.
-      // chrome.scripting.executeScript({
-      //   target: { tabId: tab.id },
-      //   files: ["content.js"],
-      // }).then(() => {
-      //   console.log('sidepanel: content.js injected successfully on tab URL update');
-      //   techList.innerHTML = '';
-      //   statusMessage.textContent = 'New page detected';
-      //   renderUnifiedUrls();
-      //   renderCombinedList();
-      //   // Experimental: call content script from sidepanel to ensure sidepanel is ready.
-      //   chrome.tabs.sendMessage(tabId, { action: 'fetchAndAnalyzeHtml', tabId, tabUrl: currentTabUrl });
-      // }).catch((err) => {
-      //   chrome.sidePanel.setOptions({ enabled: false });
-      //   console.warn('sidepanel: Failed to inject content script:', err, chrome.runtime.lastError);
-      //   chrome.action.setBadgeText({ text: 'EURL: ', tabId: tab.id });
-      //   chrome.action.setBadgeBackgroundColor({ color: '#FF0000', tabId: tab.id });
-      // });
+      // This add a fair amount of complexity.
     }
   });
 } catch (e) {
-  console.error('popup: Error adding tabs.onUpdated listener in popup:', e);
+  console.error('sidepanel: Error adding tabs.onUpdated listener in sidepanel:', e);
 }
-
-
-/*
-// Establish connection to background script for panel closure detection
-var port = null;
-
-// Request the detected technologies when the side panel is opened.
-// Getting the current tab is possible with activeTab permission.
-chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-  console.log('chrome.tabs.query called', { tabs });
-  const tabId = tabs[0].id;
-  const tabUrl = tabs[0].url;
-  currentTabId = tabId; // Store current tab ID for message filtering
-  currentTabUrl = tabUrl; // Store current tab URL
-
-  // Show target URL immediately
-  renderUnifiedUrls();
-
-  // Popup can inject script and send message but it doesn't seem to work in sidepanel.
-  // console.log('popup: Injecting content.js into tab', { tabId, tabUrl });
-  // chrome.scripting.executeScript({
-  //   target: { tabId },
-  //   files: ["content.js"],
-  // }).then(() => {
-  //   console.log('popup: content.js injected while popup opening');
-  //   chrome.tabs.sendMessage(tabId, { action: 'analyzeHtml', tabId, tabUrl });
-  // }).catch((err) => {
-  //   console.warn('popup: failed to inject content.js into tab', err);
-  //   chrome.action.setBadgeText({ text: 'ERRO: ', tabId });
-  //   chrome.action.setBadgeBackgroundColor({ color: '#FF0000', tabId });
-  // });
-
-  port = chrome.runtime.connect({ name: 'popup-' + currentTabId });
-
-  // Request content analysis for this tab now that the panel is ready
-  console.log('🚀 popup requesting content analysis', { tabId });
-  try {
-    port.postMessage({ action: 'analyzeHttp', url: tabUrl, tabId: tabId });
-    // postMessages doesn't return a resposne. Popup receives results via onMessage listener.
-    // 'analyze' should be sent from the service worker.
-    // chrome.tabs.sendMessage(tabId, { action: 'analyze' }, (response) => {
-    //   if (chrome.runtime.lastError) {
-    //     console.warn('⚠️ Failed to send analyze message to content script:', chrome.runtime.lastError.message);
-    //   } else {
-    //     console.log('✅ Analyze message sent successfully to content script');
-    //   }
-    // });
-  } catch (e) {
-    console.error('❌ Exception sending analyze message:', e);
-  }
- 
-  // Check reload suggestion after a delay
-  //setTimeout(() => {
-  //  checkAndUpdateReloadSuggestion();
-  //}, 2000); // Wait 2 seconds for content script response
-});
-*/
-
-// Experimenttal: Inject content script on tab updates from popup.
-// try {
-//   chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
-//     if (!(info && (info.status === 'loading' || info.status === 'complete')))
-//       return;
-//     currentTabId = tabId;
-//     currentTabUrl = tab.url;
-//     chrome.scripting.executeScript({
-//       target: { tabId: tab.id },
-//       files: ["content.js"],
-//     }).then(() => {
-//       console.log('popup: content.js injected successfully on tab update');
-//     }).catch((err) => {
-//       console.warn('Failed to inject content script:', err, chrome.runtime.lastError);
-//       chrome.action.setBadgeText({ text: 'ERR0: ', tabId: tab.id });
-//       chrome.action.setBadgeBackgroundColor({ color: '#FF0000', tabId: tab.id });
-//     });
-//   });
-// } catch (e) {
-//   console.error('popup: Error adding tabs.onUpdated listener in popup:', e);
-// }
-
-// Experimenttal: webRequest.onCompleted listener from popup.
-// try {
-//   console.log('popup: Attempting to register webRequest.onCompleted listener for IP detection');
-//   chrome.webRequest.onCompleted.addListener((details) => {
-//       console.log('popup: webRequest.onCompleted', { details });
-
-//       // IP address detection runs regardless of HTTP response code.
-//       if (details.ip) {
-//         try {
-//           const requestUrl = new URL(details.url);
-//           console.info('popup: webRequest.onCompleted working:', requestUrl);
-//         } catch (error) {
-//           console.warn('popup: webRequest.onCompleted error:', error);
-//         }
-//       }
-//     },
-//     { urls: ['<all_urls>'], types: ['main_frame'] }
-//   );
-//   console.log('popup: webRequest.onCompleted listener registered for IP detection');
-// } catch (e) {
-//   console.warn('popup: webRequest.onCompleted not available or blocked', e);
-// }

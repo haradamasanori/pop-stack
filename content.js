@@ -34,7 +34,7 @@ if (window !== window.top || window.webStackSpyContentScriptInjected) {
     await configLoadPromise;
     if (!techConfig) {
       console.warn('⚠️ Configuration not loaded, cannot detect technologies');
-      return detected;
+      return detected;``
     }
 
     console.log('🔧 Processing', Object.keys(techConfig).length, 'technologies');
@@ -163,51 +163,6 @@ if (window !== window.top || window.webStackSpyContentScriptInjected) {
     return detected;
   }  // detectTechnologies
 
-
-  function mergeDetectionResults(initial, results) {
-    const merged = [...initial];
-    const existingKeys = new Set(initial.map(tech => tech.key));
-
-    // Add new technologies from idle detection
-    results.forEach(tech => {
-      if (!existingKeys.has(tech.key)) {
-        merged.push(tech);
-        existingKeys.add(tech.key);
-      } else {
-        // Merge matched texts for existing technologies
-        const existingTech = merged.find(t => t.key === tech.key);
-        if (existingTech && tech.matchedTexts) {
-          const combinedTexts = [...(existingTech.matchedTexts || []), ...(tech.matchedTexts || [])];
-          existingTech.matchedTexts = [...new Set(combinedTexts)].slice(0, 5); // Deduplicate and limit
-        }
-      }
-    });
-
-    return merged;
-  }
-
-  // async function analyzeContent(tabId, tabUrl) {
-  //   console.log('🔍 analyzeContent called');
-
-  //   // Load config on-demand only for HTML pages that need analysis
-  //   await configLoadPromise;
-  //   if (!techConfig) {
-  //     console.error('config is not ready. Skipping analysis.');
-  //     return;
-  //   }
-  //   // if (!techConfig) {
-  //   //   console.log('📁 Loading configuration...');
-  //   //   await loadConfig();
-  //   // }
-
-  //   console.log('🔧 About to call detectTechnologies(), config keys:', techConfig ? Object.keys(techConfig).length : 'NO CONFIG');
-  //   const technologies = await detectTechnologies();
-  //   console.log('🔍 detectTechnologies() returned:', technologies, 'count:', technologies.length);
-  //   console.log('chrome.runtime.sendMessage called', { technologies });
-
-  //   return technologies;
-  // }
-
   chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     console.log('📨 Content script received message:', message);
     if (message.action === 'fetchAndAnalyzeHtml') {
@@ -229,26 +184,21 @@ if (window !== window.top || window.webStackSpyContentScriptInjected) {
         console.warn('Failed to fetch page in content script:', error);
       });
       const htmlComponents = await detectTechnologies();
-      // Hack: sidepanel onMessage listener may not be ready yet, so delay a bit.
-      // TODO: analyze and send the results twice? Or send results to background.js and have it forward to sidepanel.
-      //setTimeout(() => {
+      // fetchAndAnalyzeHtml is requested by the sidepanel so it's guaranteed to be ready to receive the message.
+      // We can use sendResponse() but using sendMessage() because analysis is done asynchronously and can be slow.
       chrome.runtime.sendMessage({ action: 'htmlResults', tabId, targetUrl: tabUrl, htmlComponents }).then(() => {
         console.log('htmlResults message sent to sidepanel.', tabId, tabUrl, htmlComponents);
       });
-      //}, 2000);
     } else {
-      console.log('❓ Unknown message action:', message.action);
+      console.warn('❓ Unknown message action:', message.action);
     }
   });
 
   configLoadPromise = loadConfig();
-  // Debug: Log that content script has loaded
   console.log('WebStackSpy content script loaded successfully', {
     url: window.location.href,
     isMainFrame: window === window.top,
     documentReadyState: document.readyState
   });
-}
 
-// Note: content script no longer auto-runs analysis on load. Analysis is
-// performed when the side panel requests it (via background forwarding).
+}  // window !== window.top || window.webStackSpyContentScriptInjected

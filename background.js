@@ -4,18 +4,6 @@ const readyPanels = new Set();
 let techConfig = null;
 let ipRangeConfigs = null;
 
-// Helper function to skip non-HTML resources.
-function shouldAnalyzeUrl(url) {
-  const nonHtmlExtensionRegex = /\.(png|jpe?g|gif|svg|webp|ico|css|js|json|xml|pdf|zip|mp[34]|wav|woff2?|[te]ot)$/i;
-
-  if (nonHtmlExtensionRegex.test(url)) {
-    console.log('Skipping analysis for non-HTML resource:', url);
-    return false;
-  }
-
-  return true;
-}
-
 // Load configuration and compile regex patterns
 async function loadConfig() {
   // Load main technology config
@@ -262,24 +250,7 @@ async function detectTechnologiesFromIP(url, ipAddress) {
     }
   }
   return ipComponents;
-  // const detectionsByUrl = serializeDetectionsByUrl(entry.detectionsByUrl);
-  // console.log('📨 Sending IP detection results to ready panel', detectionsByUrl);
-  // chrome.runtime.sendMessage({ action: 'updateDetectionsByUrl', tabId, detectionsByUrl, targetUrl: url }, (res) => { });
 }
-
-
-// // Helper function to convert detectionsByUrl Map to plain object for messaging
-// function serializeDetectionsByUrl(detectionsByUrlMap) {
-//   return Object.fromEntries(
-//     Array.from(detectionsByUrlMap.entries()).map(([url, detection]) => {
-//       const result = {};
-//       if (detection.headerComponents) result.headerComponents = detection.headerComponents;
-//       if (detection.htmlComponents) result.htmlComponents = detection.htmlComponents;
-//       if (detection.ipComponents) result.ipComponents = detection.ipComponents;
-//       return [url, result];
-//     })
-//   );
-// }
 
 // Helper function to get all technologies and analyzed URLs for a tab
 // TODO: not checking if this matches with the current url.
@@ -338,42 +309,6 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
   return headerComponents;
 }
 
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
-  console.log('Tab activated', activeInfo);
-});
-
-chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
-  console.log('Tab removed', removeInfo);
-});
-
-/*
-// Use onBeforeNavigate to capture the new URL as early as possible.
-// To my surprise, this appears to work with activeTab permission. However, it mostly captures
-// sub_frame navigations rather than main_frame navigations and ip address is missing.
-chrome.webNavigation.onBeforeNavigate.addListener((details) => {
-  console.log('webNavigation.onBeforeNavigate', details);
-});
-
-chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
-  console.log('chrome.tabs.onUpdated ', { tabId, info, tab });
-
-  // TODO: Start 'analyzeHtml' when status is 'loading'.
-
-  // When the page has finished loading, send the final detections and
-  // trigger the content script to analyze the DOM.
-  if (info.status === 'complete') {
-    // Request content analysis from the content script.
-    chrome.tabs.sendMessage(tabId, { action: 'analyzeHtml'.tabId, tabUrl: tab.url }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.debug('Could not send "analyze" message to content script:', chrome.runtime.lastError.message);
-      } else {
-        console.log('Sent "analyzeHtml" message to content script', { tabId, response });
-      }
-    });
-  }
-});
-*/
-
 // Detect httpComponents from headers from fetch() in the content script. Pass them along to the side panel.
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   console.log('Background: chrome.runtime.onMessage received', { message, sender });
@@ -384,67 +319,11 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   }
 });
 
-
-/*
-// Establish port connection from popup.html. Inject content script and start HTML analysis.
-chrome.runtime.onConnect.addListener((port) => {
-  // Check if the connection is coming from your side panel
-  if (!port.name?.startsWith('popup-')) {
-    return;
-  }
-  const tabId = port.name.split('-')[1] ? parseInt(port.name.split('-')[1], 10) : null;
-  console.log('Popup port connected', { tabId, port });
-
-  // Add a listener for when the port is disconnected
-  port.onDisconnect.addListener(() => {
-    console.log(`Popup port disconnected ${tabId}.`);
-  });
-
-  port.onMessage.addListener(async (message) => {
-    console.log('Message received from popup port', { message });
-    // Handle messages from the side panel if needed
-    if (message.action === 'analyzeHttp') {
-      const { tabId, url } = message;
-
-      // webRequest.onCompleted listener for IP-based detection.
-      // TODO: Try registering onCompleted listener when port is connected.
-      try {
-        console.log('Background: Attempting to register webRequest.onCompleted listener for IP detection');
-        chrome.webRequest.onCompleted.addListener(async (details) => {
-          console.log('Background: webRequest.onCompleted', { details });
-          if (details.ip) {
-            const ipComponents = await detectTechnologiesFromIP(url, details.ip);
-            chrome.runtime.sendMessage({ action: 'ipResults', tabId, targetUrl: details.url, ipComponents: ipComponents });
-            console.log('Background: IP detection results:', ipComponents);
-          }
-          // TODO: Add IP detection here if it works.
-        },
-          { urls: ['<all_urls>'], tabId: tabId, types: ['main_frame'] }
-        );
-        console.log('Background: webRequest.onCompleted listener registered for IP detection');
-      } catch (e) {
-        console.warn('Background: webRequest.onCompleted not available or blocked', e);
-      }
-
-      const response = await fetch(url, { method: 'GET' });
-      console.log('Fetched! ', { tabId, url, response });
-      const headers = [];
-      for (const [key, value] of response.headers) {
-        headers.push({ name: key, value });
-      }
-      const headerComponents = await detectTechnologiesFromHeaders(tabId, headers, url);
-      chrome.runtime.sendMessage({ action: 'httpResults', tabId, targetUrl: url, headerComponents: headerComponents });
-    }
-    // port.onMessage handler doesn't need to return a response.
-  });
-});
-*/
-
 // It seems the temporary host permission granted by 'activeTab' can be used only in two ways:
 // 1. chrome.action.onClicked handler.
 // 2. scripts on the popup opened automatically with action click. 
-// Sidepanel can be opened automatically with action click. However, it doesn't seem to get
-// the activeTab permission. So we open the sidepanel programmatically in the onClicked handler,
+// Sidepanel can be opened automatically with action click if we use openPanelOnActionClick: true.
+// However, it doesn't seem to get the activeTab permission. So we open the sidepanel programmatically in the onClicked handler,
 // We set openPanelOnActionClick to false and don't use "side_panel" in the manifest to disable
 // automatic sidepanel opening.
 console.log('Background: Adding chrome.action.onClicked handler');
@@ -462,6 +341,7 @@ try {
     // Adding a listener within a listener is discouraged with Manifest v3 but this is the only way.
     try {
       console.log('onClicked: Attempting to register webRequest.onCompleted listener for IP detection');
+      // onHeadersReceived triggers earlier but it doesn't seem to have details.ip.
       chrome.webRequest.onCompleted.addListener((details) => {
         console.log('onClicked: webRequest.onCompleted', details);
 
@@ -481,9 +361,10 @@ try {
           });
         }
       },
-        // Documentation suggests only main_frame works.
-        // Other types like 'xmlhttprequest' seem to work actually on the same origin.
-        { urls: ['https://*/*', 'http://*/*'], types: ['main_frame', 'sub_frame', 'xmlhttprequest'], tabId: tab.id },
+        { urls: ['https://*/*', 'http://*/*'],
+        // Documentation suggests only main_frame works with activeTab but
+        // other types like 'xmlhttprequest' seem to work actually on the same origin.
+          types: ['main_frame', 'sub_frame', 'xmlhttprequest'], tabId: tab.id },
         ['responseHeaders']);
       console.log('onClicked: webRequest.onCompleted listener registered for IP detection');
     } catch (e) {
@@ -501,48 +382,17 @@ try {
       files: ["content.js"],
     }).then(() => {
       console.log('onClicked: injected content.js into tab on action click', tab);
-      chrome.action.setBadgeText({ text: 'SCR', tabId: tab.id });
-      //chrome.sidePanel.setOptions({tabId: tab.id, path: 'popup.html'});erComponents: headerComponents });
-      // Injecting script twice doesn't seem to fail for executeScript().
-      // chrome.tabs.sendMessage(tab.id, { action: 'fetchAndAnalyzeHtml', tabId: tab.id, tabUrl: tab.url });
+      //chrome.action.setBadgeText({ text: 'SCR', tabId: tab.id });
     }).catch((err) => {
       console.warn('onClicked: failed to inject content.js into tab on action click', err);
-      chrome.action.setBadgeText({ text: 'ERR0: ', tabId: tab.id });
-      chrome.action.setBadgeBackgroundColor({ color: '#FF0000', tabId: tab.id });
+      //chrome.action.setBadgeText({ text: 'ERR0: ', tabId: tab.id });
+      //chrome.action.setBadgeBackgroundColor({ color: '#FF0000', tabId: tab.id });
     });
-
-    // TODO: Move it to content script.
-    // console.log('onClicked: fetching ', tab.url);
-    // try {
-    //   fetch(tab.url, { method: 'GET' }).then((response) => {
-    //     console.log('onClicked: fetched! ', response);
-    //     const headers = [];
-    //     for (const [key, value] of response.headers) {
-    //       headers.push({ name: key, value });
-    //     }
-    //     detectTechnologiesFromHeaders(tab.id, headers, tab.url).then((headerComponents) => {
-    //       chrome.runtime.sendMessage({ action: 'httpResults', tabId: tab.isDetected, targetUrl: tab.url, headerComponents: headerComponents });
-    //     });
-    // }).catch((err) => {
-    //     console.warn('onClicked: failed to fetch', err);
-    //   });
-    // } catch (e) {
-    //   console.warn('onClicked: failed to start fetching', e);
-    // };
-    //const headerComponents = await detectTechnologiesFromHeaders(tabId, headers, url);
-    //chrome.runtime.sendMessage({ action: 'httpResults', tabId, targetUrl: url, head
   }
   );  // onClicked
 } catch (e) {
   console.warn('Background: chrome.action.onClicked.addListener() failed', e);
 }
-
-// Opening sidePanel with openPanelOnActionClick doesn't seem to grant activeTab permission.
-// try {
-//   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
-// } catch (e) {
-//   console.warn('Background: sidePanel API not available', e);
-// }
 
 // Specify sidepanel behavior programmatically instead of in manifest.json.
 try {
@@ -551,26 +401,3 @@ try {
 } catch (e) {
   console.warn('Background: sidePanel API not available', e);
 }
-
-
-// try {
-//   console.log('worker: Attempting to register webRequest.onCompleted listener for IP detection');
-//   chrome.webRequest.onCompleted.addListener((details) => {
-//     console.log('worker: webRequest.onCompleted', { details });
-
-//     // IP address detection runs regardless of HTTP response code.
-//     if (details.ip) {
-//       try {
-//         const requestUrl = new URL(details.url);
-//         if (requestUrl.hostname) {
-//           console.log('worker: Triggering IP detection for', requestUrl.hostname, 'at', details.ip);
-//         }
-//       } catch (error) {
-//         console.warn('worker: IP detection failed:', error);
-//       }
-//     }
-//   }, { urls: ['<all_urls>'] });
-//   console.log('worker: webRequest.onCompleted listener registered for IP detection');
-// } catch (e) {
-//   console.warn('worker: webRequest.onCompleted not available or blocked', e);
-// }
