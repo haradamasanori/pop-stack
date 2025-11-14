@@ -247,7 +247,7 @@ function renderCombinedList() {
   techList.innerHTML = '';
   let statusMessage = document.getElementById('status-message');
 
-  if (currentTechs.length > 0) {
+  if (currentTechs && currentTechs.length > 0) {
     currentTechs.forEach(tech => {
       const card = createTechCard(tech);
       techList.appendChild(card);
@@ -257,14 +257,14 @@ function renderCombinedList() {
     techList.innerHTML = '';
 
     statusMessage.textContent = 'Detecting';
+    // Check reload suggestion after a delay
+    setTimeout(() => {
+      checkAndUpdateReloadSuggestion();
+      if (currentTechs.length == 0) {
+        statusMessage.textContent = 'No components detected';
+      }
+    }, 2000); // Wait 2 seconds for content script response
   }
-  // Check reload suggestion after a delay
-  setTimeout(() => {
-    checkAndUpdateReloadSuggestion();
-    if (currentTechs.length == 0) {
-      statusMessage.textContent = 'No components detected';
-    }
-  }, 2000); // Wait 2 seconds for content script response
 }
 
 function updateCombinedList() {
