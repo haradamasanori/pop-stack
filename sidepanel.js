@@ -1,3 +1,5 @@
+import { devLog, logWarn, logError } from './utils.js';
+
 // Maintain current state so we can render a merged view
 let currentTechs = [];
 let currentTabId = null;
@@ -301,13 +303,13 @@ function updateCombinedList() {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('sidepanel onMessage received ' + message.action, { message, sender });
+  devLog('sidepanel onMessage received ' + message.action, { message, sender });
 
   if (!message.targetUrl) { return; }
-  
+
   // Only process messages for this tab
   if (!(message.tabId && currentTabId && message.tabId === currentTabId)) {
-    console.warn('sidepanel onMessage: Message tabId does not match currentTabId', message);
+    devLog('sidepanel onMessage: Message tabId does not match currentTabId', message);
     return;
   }
 
@@ -384,7 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-  console.log('chrome.tabs.query called', { tabs });
+  devLog('chrome.tabs.query called', { tabs });
   const tabId = tabs[0].id;
   const tabUrl = tabs[0].url;
   currentTabId = tabId; // Store current tab ID for message filtering
@@ -394,7 +396,7 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   renderUnifiedUrls();
   // Call content script from sidepanel to ensure sidepanel is ready.
   chrome.tabs.sendMessage(tabId, { action: 'fetchAndAnalyzeHtml', tabId, tabUrl }).catch((err) => {
-    console.warn('Failed to request fetchAndAnalyzeHtml from side panel.', err);
+    logWarn('Failed to request fetchAndAnalyzeHtml from side panel.', err);
   });
 });
 
@@ -404,16 +406,16 @@ try {
     if (tabId !== currentTabId)
       return;
     if (currentTabUrl !== tab.url) {
-      console.log('URL changed in current tab: ', { oldUrl: currentTabUrl, newUrl: tab.url });
+      devLog('URL changed in current tab: ', { oldUrl: currentTabUrl, newUrl: tab.url });
       currentTabUrl = tab.url;
       // Close the sidepanel instance for this tab.
       chrome.sidePanel.setOptions({ tabId, enabled: false });
       // TODO: we may be able to keep the sidepanel open if the hostname stays the same.
       // This add a fair amount of complexity.
     } else {
-      console.log('tabs.onUpdated', { tabId, info, tab });
+      devLog('tabs.onUpdated', { tabId, info, tab });
     }
   });
 } catch (e) {
-  console.error('sidepanel: Error adding tabs.onUpdated listener in sidepanel:', e);
+  logError('sidepanel: Error adding tabs.onUpdated listener in sidepanel:', e);
 }

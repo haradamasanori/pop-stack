@@ -1,3 +1,5 @@
+import { devLog, logWarn, logError } from './utils.js';
+
 const readyPanels = new Set();
 
 // Cache for configuration
@@ -21,14 +23,14 @@ async function loadConfig() {
           try {
             return { pattern, regex: new RegExp(pattern, 'i') };
           } catch (error) {
-            console.warn(`Background: Invalid header regex pattern for ${config.name}:`, pattern, error);
+            logWarn(`Background: Invalid header regex pattern for ${config.name}:`, pattern, error);
             return null;
           }
         }).filter(Boolean) // Remove null entries from invalid patterns
       };
     });
     techConfig = tmpTechConfig;
-    console.log('Background: Configuration loaded:', Object.keys(tmpTechConfig).length, 'technologies');
+    devLog('Background: Configuration loaded:', Object.keys(tmpTechConfig).length, 'components');
   }
 
   // Load IP range configs
@@ -50,14 +52,14 @@ async function loadConfig() {
           normalizedRanges: ranges
         };
 
-        console.log(`Background: IP ranges loaded for ${provider}:`, ranges.length, 'ranges');
+        devLog(`Background: IP ranges loaded for ${provider}:`, ranges.length, 'ranges');
       } catch (error) {
-        console.warn(`Background: Failed to load IP ranges for ${provider}:`, error);
+        logWarn(`Background: Failed to load IP ranges for ${provider}:`, error);
         tmpIpRangeConfigs[provider] = { normalizedRanges: [] };
       }
     }
     ipRangeConfigs = tmpIpRangeConfigs;
-    console.log('Background: IP range configs loaded for', Object.keys(tmpIpRangeConfigs).length, 'providers');
+    devLog('Background: IP range configs loaded for', Object.keys(tmpIpRangeConfigs).length, 'providers');
   }
 
   return { techConfig, ipRangeConfigs };
@@ -202,7 +204,7 @@ function isIpInCidr(ip, cidr) {
       return true;
     }
   } catch (error) {
-    console.warn('Error checking IP range:', ip, 'in', cidr, error);
+    logWarn('Error checking IP range:', ip, 'in', cidr, error);
     return false;
   }
 }
@@ -214,11 +216,11 @@ async function detectTechnologiesFromIP(url, ipAddress) {
   }
   const urlobj = new URL(url);
   const hostname = urlobj.hostname;
-  console.log(`🌍 Starting IP-based detection for url: ${url}, host: ${hostname}, IP: ${ipAddress}`);
   if (!ipAddress) {
-    console.log('⏭️ No IP address provided for url:', url);
+    devLog('No IP address provided for url:', url);
     return;
   }
+  devLog(`Starting IP-based detection for url: ${url}, host: ${hostname}, IP: ${ipAddress}`);
   const ipComponents = [];
 
   // Check IP against all provider ranges
@@ -229,7 +231,6 @@ async function detectTechnologiesFromIP(url, ipAddress) {
     for (const range of ranges) {
       if (isIpInCidr(ipAddress, range)) {
         isDetected = true;
-        console.log(`✓ IP ${ipAddress} matches ${provider} range: ${range}`);
         break;
       }
     }
@@ -246,7 +247,7 @@ async function detectTechnologiesFromIP(url, ipAddress) {
       };
       ipComponents.push(detectedTech);
 
-      console.log(`🎯 Detected ${config.name} via IP address ${ipAddress} for ${hostname}`);
+      devLog(`Detected ${config.name} via IP address ${ipAddress} for ${hostname}`);
     }
   }
   return ipComponents;
@@ -294,13 +295,11 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
         developer: config.developer || '',
         matchedTexts: [...matchedTexts]
       };
-
-      console.log(`🔑 HTTP detection key for ${name}: "${key}"`);
-      console.log(`📄 HTTP detection matched texts: [${detectedTech.matchedTexts.join(', ')}]`);
+      devLog(`HTTP detection ${name}: "${key}" matched texts: [${detectedTech.matchedTexts.join(', ')}]`);
 
       headerComponents.push(detectedTech);
       detectedTechKeys.add(key);
-      console.log(`Background: Detected ${name} via header patterns for ${url} (matched: ${detectedTech.matchedTexts.join(', ')})`);
+      devLog(`Background: Detected ${name} via header patterns for ${url} (matched: ${detectedTech.matchedTexts.join(', ')})`);
     }
   });
   return headerComponents;
@@ -308,7 +307,7 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
 
 // Detect httpComponents from headers from fetch() in the content script. Pass them along to the side panel.
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
-  console.log('Background: chrome.runtime.onMessage received', { message, sender });
+  devLog('Background: chrome.runtime.onMessage received', { message, sender });
   if (message.action === 'fetchedHeaders') {
     const { tabId, tabUrl } = message;
     const headerComponents = await detectTechnologiesFromHeaders(tabId, message.headers, tabUrl);
@@ -326,13 +325,13 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 // However, it doesn't seem to get the activeTab permission. So we open the sidepanel programmatically 
 // in the onClicked handler. We set openPanelOnActionClick to false and don't use "side_panel" in the 
 // manifest to disable automatic sidepanel opening.
-console.log('Background: Adding chrome.action.onClicked handler');
 try {
   chrome.action.onClicked.addListener((tab) => {
-    console.log('onClicked: listener begin', tab);
+    devLog('onClicked: listener begin', tab);
 
     if (readyPanels.has(tab.id)) {
       readyPanels.delete(tab.id);
+      // There is no method like sidePanel.close(), so we disable the sidepanel for the tab.
       chrome.sidePanel.setOptions({ tabId: tab.id, enabled: false });
       return;
     }
@@ -340,26 +339,25 @@ try {
     // Registering webRequest.onCompleted listener works within the onClick listener.
     // Adding a listener within a listener is discouraged with Manifest v3 but this is the only way.
     try {
-      console.log('onClicked: Attempting to register webRequest.onCompleted listener for IP detection');
       // onHeadersReceived triggers earlier but it doesn't seem to have details.ip.
       chrome.webRequest.onCompleted.addListener((details) => {
-        console.log('onClicked: webRequest.onCompleted', details);
+        devLog('onClicked: webRequest.onCompleted', details);
 
         // IP address detection runs regardless of HTTP response code.
         if (details.ip) {
           detectTechnologiesFromIP(details.url, details.ip).then((ipComponents) => {
-            console.log('onClicked: IP detection results:', ipComponents);
+            devLog('onClicked: IP detection results:', ipComponents);
             // Send results if the sidepanel is still open.
             if (readyPanels.has(details.tabId)) {
               chrome.runtime.sendMessage({ action: 'ipResults', tabId: details.tabId, targetUrl: details.url, ipComponents });
             }
           }).catch((error) => {
-            console.warn('onClicked: IP detection failed:', error);
+            logWarn('onClicked: IP detection failed:', error);
           });
         }
         if (details.responseHeaders) {
           detectTechnologiesFromHeaders(details.tabId, details.responseHeaders, details.url).then((headerComponents) => {
-            console.log('onClicked: Header detection results:', headerComponents);
+            devLog('onClicked: Header detection results:', headerComponents);
             // Send results if the sidepanel is still open.
             if (readyPanels.has(details.tabId)) {
               chrome.runtime.sendMessage({ tabId: details.tabId, targetUrl: details.url, action: 'headerResults', headerComponents });
@@ -371,36 +369,42 @@ try {
           urls: ['https://*/*', 'http://*/*'],
           // Documentation suggests only main_frame works with activeTab but
           // other types like 'xmlhttprequest' actually work on the same origin.
+          // 'xmlhttprequest' is essential to capture fetch() calls from the content script.
           types: ['main_frame', 'sub_frame', 'xmlhttprequest'], tabId: tab.id
         },
+        // This option is needed for responseHeaders analysis above.
         ['responseHeaders']);
-      console.log('onClicked: webRequest.onCompleted listener registered for IP detection');
+      if (chrome.runtime.lastError) {
+        logError('onClicked: webRequest.onCompleted failed to add listener', chrome.runtime.lastError);
+      } else {
+        devLog('onClicked: webRequest.onCompleted listener registered for IP detection');
+      }
     } catch (e) {
-      console.warn('onClicked: webRequest.onCompleted not available or blocked', e);
+      logError('onClicked: webRequest.onCompleted not available or blocked', e);
     }
     chrome.scripting.executeScript({
       target: { tabId: tab.id },
       files: ["content.js"],
     }).then(() => {
-      console.log('onClicked: injected content.js into tab on action click', tab);
+      devLog('onClicked: injected content.js into tab on action click', tab);
     }).catch((err) => {
-      console.warn('onClicked: failed to inject content.js into tab on action click', err);
+      logWarn('onClicked: failed to inject content.js into tab on action click', err);
     });
     // Open sidepanel creating tab-specific sidepanel instance.
     // Known issue: action click sometimes doesn't open sidebar if the current page is still loading.
     chrome.sidePanel.setOptions({ tabId: tab.id, path: 'sidepanel.html', enabled: true }).catch((err) => {
-      console.warn('onClicked: sidePanel.setOptions failed before opening sidepanel', err);
+      logWarn('onClicked: sidePanel.setOptions failed before opening sidepanel', err);
     });
     chrome.sidePanel.open({ tabId: tab.id }).then(() => {
       readyPanels.add(tab.id);
-      console.log('onClicked: sidePanel opened for tab', tab.id);
+      devLog('onClicked: sidePanel opened for tab', tab.id);
     }).catch((err) => {
-      console.warn('onClicked: sidePanel failed to open', err);
+      logWarn('onClicked: sidePanel failed to open', err);
     });
   }
   );  // onClicked
 } catch (e) {
-  console.warn('Background: chrome.action.onClicked.addListener() failed', e);
+  logError('Background: chrome.action.onClicked.addListener() failed', e);
 }
 
 // Specify sidepanel behavior programmatically instead of in manifest.json.
@@ -408,5 +412,5 @@ try {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
   chrome.sidePanel.setOptions({ path: 'sidepanel.html', enabled: false });
 } catch (e) {
-  console.warn('Background: sidePanel API not available', e);
+  logError('Background: sidePanel API not available', e);
 }

@@ -1,6 +1,6 @@
 if (window !== window.top || window.webStackSpyContentScriptInjected) {
   // Avoid running the content script multiple times.
-  console.log('WebStackSpy content script already exists.', {
+  console.log('WebStackSpy: content script already exists.', {
     url: window.location.href,
     isMainFrame: window === window.top,
     documentReadyState: document.readyState
@@ -8,44 +8,54 @@ if (window !== window.top || window.webStackSpyContentScriptInjected) {
 } else {
   window.webStackSpyContentScriptInjected = true;
 
+  // Content script cannot use ES Modules directly, so we redefine needed utils here.
+  const IS_DEV = !('update_url' in chrome.runtime.getManifest());
+  function devLog(...messages) {
+    if (IS_DEV) {
+      console.log(...messages);
+    }
+  }
+  function logWarn(...messages) {
+    console.warn('WebStackSpy:', ...messages);
+  }
+  function logError(...messages) {
+    console.error('WebStackSpy:', ...messages);
+  }
+
   let techConfig = null;
   let configLoadPromise = null;
 
   // Load configuration
   async function loadConfig() {
-    console.log('loadConfig() called');
     try {
       const configUrl = chrome.runtime.getURL('config.json');
-      console.log('Fetching config from:', configUrl);
       const response = await fetch(configUrl);
-      console.log('Config fetch response status:', response.status);
       techConfig = await response.json();
-      console.log('Configuration loaded successfully:', Object.keys(techConfig).length, 'technologies');
     } catch (error) {
-      console.error('Failed to load config.json:', error);
-      techConfig = {};
+      logError('Failed to load config.json:', error);
+      techConfig = null;
     }
   }
 
-  async function detectTechnologies() {
-    console.log('🔍 detectTechnologies called');
+  async function detectHtmlComponents() {
     const detected = [];
 
     await configLoadPromise;
     if (!techConfig) {
-      console.warn('⚠️ Configuration not loaded, cannot detect technologies');
-      return detected;``
+      logWarn('detectHtmlComponents: Config not loaded. Skipping detection.');
+      return detected;
     }
 
-    console.log('🔧 Processing', Object.keys(techConfig).length, 'technologies');
+    devLog('Detecting ', Object.keys(techConfig).length, ' components from config.');
 
-    // Iterate through all configured technologies
+    let htmlText = null;
+    // Iterate through all configured components.
     Object.entries(techConfig).forEach(([key, config]) => {
       const { name, selectors = [], html: htmlPatterns = [], description, link, tags, developer } = config;
       let matchedTexts = [];
       let isDetected = false;
 
-      // Try querySelector patterns first (faster)
+      // Try querySelector patterns first (faster).
       if (selectors.length > 0) {
         for (const selector of selectors) {
           try {
@@ -92,11 +102,11 @@ if (window !== window.top || window.webStackSpyContentScriptInjected) {
                 }
               });
 
-              console.log(`Detected ${name} via querySelector: ${selector} (${elements.length} elements)`);
+              devLog(`Detected ${name} via querySelector: ${selector} (${elements.length} elements)`);
               break; // Stop after first successful selector
             }
           } catch (error) {
-            console.warn(`Invalid selector for ${name}:`, selector, error);
+            logWarn(`Invalid selector for ${name}:`, selector, error);
           }
         }
       }
@@ -104,19 +114,21 @@ if (window !== window.top || window.webStackSpyContentScriptInjected) {
       // Fallback to HTML regex patterns if no selector matches
       if (!isDetected && htmlPatterns.length > 0) {
         // Only construct HTML string if needed for fallback
-        const html = document.documentElement.outerHTML;
+        if (htmlText === null) {
+          htmlText = document.documentElement.outerHTML;
+        }
 
         for (const pattern of htmlPatterns) {
           try {
             const regex = new RegExp(pattern, 'gi');
             let match;
-            while ((match = regex.exec(html)) !== null) {
+            while ((match = regex.exec(htmlText)) !== null && match.length > 0 && match[0].length > 0) {
               if (!isDetected) isDetected = true;
 
               // Extract a reasonable snippet around the match
               const matchStart = Math.max(0, match.index - 50);
-              const matchEnd = Math.min(html.length, match.index + match[0].length + 50);
-              let snippet = html.substring(matchStart, matchEnd).trim();
+              const matchEnd = Math.min(htmlText.length, match.index + match[0].length + 50);
+              let snippet = htmlText.substring(matchStart, matchEnd).trim();
 
               // Clean up the snippet - remove excessive whitespace and newlines
               snippet = snippet.replace(/\s+/g, ' ').replace(/[<>]/g, '');
@@ -130,8 +142,6 @@ if (window !== window.top || window.webStackSpyContentScriptInjected) {
                 matchedTexts.push(snippet);
               }
 
-              // Avoid infinite loop with zero-width matches
-              if (match[0].length === 0) break;
               // Limit matches to avoid too many results
               if (matchedTexts.length >= 5) break;
             }
@@ -140,12 +150,12 @@ if (window !== window.top || window.webStackSpyContentScriptInjected) {
               break; // Stop after first successful pattern
             }
           } catch (error) {
-            console.warn(`Invalid regex pattern for ${name}:`, pattern, error);
+            logError(`Invalid regex pattern for ${name}:`, pattern, error);
           }
         }
       }
 
-      // Add technology if detected by either method
+      // Add component if detected by either method.
       if (isDetected) {
         detected.push({
           key,
@@ -159,44 +169,49 @@ if (window !== window.top || window.webStackSpyContentScriptInjected) {
       }
     });
 
-    console.log('Detected:', { detected });
+    devLog('Detected:', { detected });
     return detected;
-  }  // detectTechnologies
+  }  // detectHtmlComponents
 
   chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
-    console.log('📨 Content script received message:', message);
+    devLog('Content script received message:', message);
     if (message.action === 'fetchAndAnalyzeHtml') {
       const { tabId, tabUrl } = message;
       await configLoadPromise;
       if (!techConfig) {
-        console.error('config is not ready. Skipping analysis.');
+        logError('Config is not ready. Skipping analysis.');
         return;
       }
       // Fetch the page within content script. This enables getting IP info with webRequest.onComplete in background.js.
       // fetch() can be called in the service worker too but the IP field is missing in the response.
       fetch(tabUrl).then((response) => {
-        console.log('Fetched in content script! ', response);
+        devLog('WebStackSpy: Fetched the current page in content.js', response);
         const headers = [];
         for (const [key, value] of response.headers) {
           headers.push({ name: key, value });
         }
         chrome.runtime.sendMessage({ action: 'fetchedHeaders', tabId, tabUrl, headers });
       }).catch((error) => {
-        console.warn('Failed to fetch page in content script:', error);
+        logWarn('Failed to fetch the current page in content.js', error);
       });
-      const htmlComponents = await detectTechnologies();
+      const htmlComponents = await detectHtmlComponents();
       // fetchAndAnalyzeHtml is requested by the sidepanel so it's guaranteed to be ready to receive the message.
       // We can use sendResponse() but using sendMessage() because analysis is done asynchronously and can be slow.
       chrome.runtime.sendMessage({ action: 'htmlResults', tabId, targetUrl: tabUrl, htmlComponents }).then(() => {
-        console.log('htmlResults message sent to sidepanel.', tabId, tabUrl, htmlComponents);
+        devLog('htmlResults message sent to sidepanel.', tabId, tabUrl, htmlComponents);
       });
     } else {
-      console.warn('❓ Unknown message action:', message.action);
+      logError('Unknown message action:', message.action);
     }
   });
 
   configLoadPromise = loadConfig();
-  console.log('WebStackSpy content script loaded successfully', {
+  configLoadPromise.then(() => {
+    devLog('Configuration loaded in content script.', techConfig);
+  }).catch((error) => {
+    logError('Error loading config in content script:', error);
+  });
+  devLog('WebStackSpy: content script loaded successfully', {
     url: window.location.href,
     isMainFrame: window === window.top,
     documentReadyState: document.readyState
