@@ -262,7 +262,8 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
   }
 
   // Convert headers to individual header strings for pattern matching
-  const headerStrings = responseHeaders.map(h => `${h.name.toLowerCase()}: ${h.value || ''}`);
+  const headerStrings = responseHeaders.filter(h => h.name.toLowerCase() !== 'content-security-policy')
+    .map(h => `${h.name.toLowerCase()}: ${h.value || ''}`);
 
   // Track detected technologies by key to avoid duplicates
   const detectedTechKeys = new Set();
