@@ -9,12 +9,19 @@
         ],
         "link": "https://angular.dev/",
         "developer": "Google LLC",
-        "html": [
-            "<script[^>]*\\bangular[.].*?>"
-        ],
         "selectors": [
             "script[src*='angular']",
-            "script[src*='@angular']"
+            "[ng-version]",
+            "[ng-app-id]",
+            "app-root",
+            "router-outlet",
+            "#ng-state"
+        ],
+        "html": [
+            "_ngcontent-ng"
+        ],
+        "headers": [
+            "\\bangular"
         ]
     },
     "aurelia": {
@@ -26,11 +33,11 @@
         ],
         "link": "https://aurelia.io/",
         "developer": "Aurelia Core Team",
-        "html": [
-            "<script[^>]*\\baurelia.*?>"
-        ],
         "selectors": [
             "script[src*='aurelia']"
+        ],
+        "headers": [
+            "\\baurelia\\b"
         ]
     },
     "backbone": {
@@ -42,11 +49,11 @@
         ],
         "link": "https://backbonejs.org/",
         "developer": "Jeremy Ashkenas",
-        "html": [
-            "<script[^>]*backbone[^>]*\\.js"
-        ],
         "selectors": [
             "script[src*='backbone']"
+        ],
+        "headers": [
+            "\\bbackbone"
         ]
     },
     "ember": {
@@ -58,11 +65,11 @@
         ],
         "link": "https://emberjs.com/",
         "developer": "Ember Core Team",
-        "html": [
-            "<script[^>]*ember[^>]*\\.js"
-        ],
         "selectors": [
-            "script[src*='ember']"
+            "script[src*='/ember']"
+        ],
+        "headers": [
+            "\\bember"
         ]
     },
     "gatsby": {
@@ -77,12 +84,12 @@
         ],
         "link": "https://www.gatsbyjs.com/",
         "developer": "Gatsby, Inc.",
-        "html": [
-            "<div[^>]*id=\"___gatsby\""
-        ],
         "selectors": [
-            "div#___gatsby",
+            "#___gatsby",
             "script[src*='gatsby']"
+        ],
+        "headers": [
+            "\\bgatsby"
         ]
     },
     "knockout": {
@@ -94,11 +101,11 @@
         ],
         "link": "https://knockoutjs.com/",
         "developer": "Steven Sanderson",
-        "html": [
-            "<script[^>]*knockout[^>]*\\.js"
-        ],
         "selectors": [
             "script[src*='knockout']"
+        ],
+        "headers": [
+            "\\bknockout"
         ]
     },
     "mootools": {
@@ -110,11 +117,11 @@
         ],
         "link": "https://mootools.net/",
         "developer": "MooTools team",
-        "html": [
-            "<script[^>]*mootools[^>]*\\.js"
-        ],
         "selectors": [
             "script[src*='mootools']"
+        ],
+        "headers": [
+            "\\bmootools"
         ]
     },
     "polymer": {
@@ -126,9 +133,6 @@
         ],
         "link": "https://www.polymer-project.org/",
         "developer": "The Polymer Authors",
-        "html": [
-            "<script[^>]*polymer[^>]*\\.js"
-        ],
         "selectors": [
             "script[src*='polymer']"
         ]
@@ -140,13 +144,10 @@
             "web_framework",
             "javascript"
         ],
-        "link": "https://reactive.io/",
+        "link": "https://ractive.js.org/",
         "developer": "ReactiveJS contributors",
-        "html": [
-            "<script[^>]*reactive[^>]*\\.js"
-        ],
         "selectors": [
-            "script[src*='reactive']"
+            "script[src*='/reactive']"
         ]
     },
     "react": {
@@ -158,16 +159,14 @@
         ],
         "link": "https://reactjs.org/",
         "developer": "Meta",
-        "html": [
-            "<script[^>]*\\breact[^>]*\\.js",
-            "<div[^>]*data-reactroot",
-            "<div[^>]*id=\"react-root\""
-        ],
         "selectors": [
-            "script[src*='react']",
-            "div[data-reactroot]",
-            "div#react-root",
-            "div#__next"
+            "script[src*='/react']",
+            "[data-reactroot]",
+            "[data-reactid]",
+            "#react-root"
+        ],
+        "headers": [
+            "\\breact\\b"
         ]
     },
     "riotjs": {
@@ -179,9 +178,6 @@
         ],
         "link": "https://riot.js.org/",
         "developer": "Riot.js community",
-        "html": [
-            "<script[^>]*riot[^>]*\\.js"
-        ],
         "selectors": [
             "script[src*='riot']"
         ]
@@ -196,19 +192,18 @@
             "react"
         ],
         "developer": "Vercel",
-        "html": [
-            "_next/static/chunks",
-            "next-head-count",
-            "next-route-announcer",
-            "__NEXT_DATA__"
+        "selectors": [
+            "#__NEXT_DATA__",
+            "#__next",
+            "#next-route-announcer",
+            "nextid",
+            "script[src*='_next/static/chunks']",
+            "[data-next-head-count]",
+            "meta[name='next-head-count']"
         ],
         "headers": [
-            ".*\\bnext[.]js\\b.*"
-        ],
-        "selectors": [
-            "script[src*='_next/static']",
-            "script[id='__NEXT_DATA__']",
-            "div[data-next-head-count]"
+            "\\bNext[.]js",
+            "next-router"
         ]
     },
     "nuxt": {
@@ -220,13 +215,12 @@
             "javascript"
         ],
         "developer": "Nuxt Team",
-        "html": [
-            "/_nuxt/",
-            "\"__nuxt\""
-        ],
         "selectors": [
             "script[src*='/_nuxt/']",
-            "div#__nuxt"
+            "#__nuxt"
+        ],
+        "headers": [
+            "\\bnuxt\\b"
         ]
     },
     "vue": {
@@ -238,11 +232,32 @@
             "javascript"
         ],
         "developer": "Evan You and Vue.js contributors",
+        "selectors": [
+            "script[src*='/vue']"
+        ],
+        "headers": [
+            "\\bvue\\b"
+        ]
+    },
+    "svelte": {
+        "name": "Svelte",
+        "link": "https://svelte.dev/",
+        "description": "Svelte is a modern, open-source JavaScript framework for building user interfaces. It distinguishes itself from other popular frameworks like React and Vue by shifting the bulk of its work into a compile step, rather than performing it in the browser at runtime.",
+        "tags": [
+            "web_framework",
+            "javascript"
+        ],
+        "developer": "Svelte contributors",
         "html": [
-            "<script[^>]*vue[.]js"
+            "__sveltekit_"
         ],
         "selectors": [
-            "script[src*='vue']"
+            "#svelte-announcer",
+            "[data-sveltekit-preload-data]",
+            "[class*='svelte-']"
+        ],
+        "headers": [
+            "\\bsvelte"
         ]
     },
     "jquery": {
@@ -253,14 +268,8 @@
             "javascript"
         ],
         "developer": "The jQuery Foundation",
-        "html": [
-            "<script[^>]*\\bjquery[.]",
-            "https://ajax[.]googleapis[.]com/ajax/libs/jquery",
-            "jquery[.]min[.]js"
-        ],
         "selectors": [
-            "script[src*='jquery']",
-            "script[src*='ajax.googleapis.com/ajax/libs/jquery']"
+            "script[src*='jquery']"
         ]
     },
     "sass": {
@@ -271,12 +280,9 @@
             "css"
         ],
         "developer": "Hampton Catlin, Michael \"Mike\" Bianchi, Chris Eppstein",
-        "html": [
-            "<link[^>]+[.]s[ac]ss"
-        ],
         "selectors": [
-            "link[href$='.scss']",
-            "link[href$='.sass']"
+            "link[href*='.scss']",
+            "link[href*='.sass']"
         ]
     },
     "ga": {
@@ -350,9 +356,6 @@
             "css"
         ],
         "developer": "Pouya Saadeghi",
-        "html": [
-            "cdn.jsdelivr.net/npm/daisyui"
-        ],
         "link": "https://daisyui.com/",
         "selectors": [
             "script[src*='daisyui']",
@@ -368,15 +371,12 @@
         ],
         "link": "https://htmx.org/",
         "developer": "Carson Gross",
-        "html": [
-            "unpkg.com/htmx",
-            " hx-(?:get|post|target|indicator)="
-        ],
         "selectors": [
             "script[src*='htmx']",
             "[hx-get]",
             "[hx-post]",
-            "[hx-target]"
+            "[hx-target]",
+            "[hx-indicator]"
         ]
     },
     "nginx": {
@@ -388,7 +388,19 @@
         ],
         "developer": "Nginx, Inc.",
         "headers": [
-            "\\bnginx\\b"
+            "\\bnginx"
+        ]
+    },
+    "tengine": {
+        "description": "Tengine is an open-source web server developed by Taobao, a major e-commerce platform in Asia. It is a fork of the popular Nginx HTTP server and inherits all of Nginx's features while adding a range of advanced functionalities.",
+        "name": "Tengine",
+        "link": "https://tengine.taobao.org/",
+        "tags": [
+            "http_server"
+        ],
+        "developer": "Alibaba Group",
+        "headers": [
+            "\\btengine"
         ]
     },
     "envoy": {
@@ -400,7 +412,7 @@
         ],
         "developer": "Cloud Native Computing Foundation",
         "headers": [
-            ".*\\benvoy\\b.*"
+            "\\benvoy"
         ]
     },
     "apache": {
@@ -412,7 +424,7 @@
         ],
         "developer": "Apache Software Foundation",
         "headers": [
-            "^server:.*apache"
+            "\\bapache"
         ]
     },
     "express": {
@@ -421,7 +433,7 @@
         "description": "Express.js is a minimal and flexible Node.js web application framework that provides a robust set of features for web and mobile applications. It's widely used for building APIs and web servers due to its simplicity and unopinionated nature.",
         "developer": "TJ Holowaychuk",
         "headers": [
-            "^x-powered-by:.*express"
+            "\\bexpress\\b"
         ]
     },
     "varnish": {
@@ -433,17 +445,18 @@
         ],
         "developer": "Varnish Software AS",
         "headers": [
-            "^.*\\bvarnish\\b"
+            "\\bvarnish\\b"
         ]
     },
     "google": {
         "name": "Google",
         "link": "https://about.google/",
-        "description": "This likely refers to Google's general web services or platforms, encompassing a wide range of offerings like search, cloud computing, advertising, and development tools. It's a broad term for various web-related services provided by Google.",
+        "description": "Google's web services or platforms, encompassing a wide range of offerings like search, cloud computing, advertising, and development tools.",
         "developer": "Google LLC",
         "headers": [
-            "^server:.*google$",
-            "^via:.*google"
+            "^server: google",
+            "^via:.*google",
+            "scaffolding on HTTPServer2"
         ]
     },
     "vercel": {
@@ -452,8 +465,7 @@
         "developer": "Vercel Inc.",
         "description": "Vercel is a cloud platform for static sites and Serverless Functions, specializing in Next.js applications. It provides global deployment, serverless scaling, and a seamless developer experience for modern web projects.",
         "headers": [
-            "^x-vercel-id",
-            "^server: Vercel"
+            "\\bvercel"
         ]
     },
     "gae": {
@@ -462,7 +474,7 @@
         "link": "https://cloud.google.com/appengine",
         "developer": "Google LLC",
         "headers": [
-            "^x-appengine.*$"
+            "\\bappengine\\b"
         ]
     },
     "cloudfront": {
@@ -475,10 +487,26 @@
         "developer": "Amazon.com, Inc.",
         "description": "Amazon CloudFront is a fast content delivery network (CDN) service by Amazon Web Services (AWS). It securely delivers data, videos, applications, and APIs to customers globally with low latency and high transfer speeds.",
         "headers": [
-            "^.*\\bcloudfront\\b.*$",
-            "^x-amz-cf-.*:",
+            "\\bcloudfront\\b",
+            "^x-amz-cf-",
             "^Server: CEP$",
             "^X-infrastructure: CepAws"
+        ]
+    },
+    "f5": {
+        "name": "F5",
+        "link": "https://f5.com/",
+        "developer": "F5, Inc.",
+        "description": "F5 provides services to help manage and secure applications, ensuring they are resilient, performant, and secure across multi-cloud and hybrid environments.",
+        "tags": [
+            "cdn"
+        ],
+        "domains": [
+            "\\bf5[.]com$"
+        ],
+        "headers": [
+            "\\bvolt-adc\\b",
+            "\\bVolterra"
         ]
     },
     "fastly": {
@@ -493,7 +521,7 @@
             "\\bfastly[.]net$"
         ],
         "headers": [
-            "^.*\\bfastly\\b.*$"
+            "\\bfastly"
         ]
     },
     "cloudflare": {
@@ -504,11 +532,11 @@
         "tags": [
             "cdn"
         ],
-        "html": [
-            "data-cf-beacon"
+        "selectors": [
+            "script[data-cf-beacon]"
         ],
         "headers": [
-            "^Server:.*\\bcloudflare\\b.*$",
+            "cloudflare",
             "^cf-ray.*$",
             "^cf-mitigated.*$"
         ]
@@ -525,7 +553,7 @@
             "herokuapp[.]com"
         ],
         "headers": [
-            "^.*\\bheroku\\b.*$"
+            "heroku"
         ]
     },
     "github": {
@@ -540,7 +568,7 @@
             "\\bgithub"
         ],
         "headers": [
-            "\\bgithub\\b"
+            "github"
         ]
     },
     "gcp": {
@@ -553,8 +581,7 @@
         "link": "https://cloud.google.com/",
         "description": "Google Cloud Platform (GCP) is a suite of cloud computing services that runs on the same infrastructure that Google uses internally for its end-user products, such as Google Search, Gmail, file storage, and YouTube. It offers various services like compute, storage, databases, machine learning, and more.",
         "headers": [
-            "^x-backend-server:.*gcp",
-            "^x-served-by:.*gcp"
+            "\\bgcp\\b"
         ]
     },
     "aws": {
@@ -566,8 +593,8 @@
         "developer": "Amazon.com, Inc.",
         "description": "Amazon Web Services (AWS) is a comprehensive, broadly adopted, and widely used cloud platform, offering over 200 fully featured services from data centers globally. It provides a vast array of services for compute, storage, databases, analytics, machine learning, and more.",
         "headers": [
-            "^set-cookie:.*AWSALB",
-            "^x-amz-.*?:"
+            "\\bAWSALB\\b",
+            "^x-amz-"
         ]
     },
     "azure": {
@@ -579,7 +606,21 @@
         "developer": "Microsoft Corporation",
         "description": "Microsoft Azure, commonly referred to as Azure, is a cloud computing service operated by Microsoft for application management via Microsoft-managed data centers. It provides a wide range of services for building, deploying, and managing applications and services.",
         "headers": [
-            "\\bazure\\b"
+            "\\bazure"
+        ]
+    },
+    "aspnet": {
+        "name": "ASP.NET",
+        "link": "https://dotnet.microsoft.com/",
+        "tags": [
+            "web_framework",
+            "csharp"
+        ],
+        "developer": "Microsoft Corporation",
+        "description": "A framework for building web apps and services with .NET and C#.",
+        "headers": [
+            "\\basp[.]net",
+            "\\bkestrel"
         ]
     },
     "akamai": {
@@ -591,7 +632,7 @@
         "developer": "Akamai Technologies, Inc.",
         "description": "Akamai Technologies is a content delivery network (CDN) and cloud services company that provides a global network of servers to deliver web content and applications quickly and securely. It focuses on web performance, security, and media delivery.",
         "headers": [
-            "^Akamai.*"
+            "\\bAkamai"
         ]
     },
     "netlify": {
@@ -603,7 +644,47 @@
         "developer": "Netlify, Inc.",
         "description": "Netlify is a web developer platform that unifies the entire workflow for building, deploying, and scaling high-performance web applications. It offers continuous deployment, serverless functions, and a global CDN for modern web projects.",
         "headers": [
-            "^.*\\bNetlify\\b.*$"
+            "Netlify"
+        ]
+    },
+    "php": {
+        "name": "PHP",
+        "tags": [
+            "language",
+            "php"
+        ],
+        "link": "https://www.php.net/",
+        "developer": "The PHP Group",
+        "description": "A popular general-purpose scripting language that is especially suited to web development.",
+        "headers": [
+            "\\bphp\\b"
+        ]
+    },
+    "python": {
+        "name": "Python",
+        "tags": [
+            "language",
+            "python"
+        ],
+        "link": "https://www.python.org/",
+        "developer": "Python Software Foundation",
+        "description": "Python is a high-level, interpreted, general-purpose programming language known for its simplicity, readability, and versatility. It is widely used in web development, data science, machine learning, artificial intelligence, and scientific computing. Python emphasizes code readability and allows developers to express concepts in fewer lines of code than traditional programming languages.",
+        "headers": [
+            "\\bpython"
+        ]
+    },
+    "java": {
+        "name": "Java",
+        "tags": [
+            "language",
+            "java"
+        ],
+        "link": "https://www.java.com/",
+        "developer": "Oracle Corporation",
+        "description": "Java is a high-level, object-oriented, general-purpose programming language designed to have as few implementation dependencies as possible. It is widely used for building robust, scalable server-side applications, Android mobile apps, and enterprise software. Java emphasizes portability through its 'write once, run anywhere' principle, with code compiled to bytecode that runs on the Java Virtual Machine (JVM).",
+        "headers": [
+            "\\bjava\\b",
+            "\\bservlet\\b"
         ]
     },
     "cakephp": {
@@ -616,7 +697,7 @@
         "developer": "Cake Software Foundation, Inc.",
         "description": "CakePHP is an open-source web framework written in PHP, which follows the model-view-controller (MVC) architectural pattern. It provides a structured and rapid development environment for building web applications.",
         "headers": [
-            "^.*\\bcakephp\\b.*$"
+            "cakephp"
         ]
     },
     "symfony": {
@@ -628,11 +709,11 @@
         "link": "https://symfony.com/",
         "developer": "SensioLabs",
         "description": "Symfony is a PHP web application framework and a set of reusable PHP components/libraries. It provides a robust architecture for building complex web applications, emphasizing performance and flexibility.",
-        "headers": [
-            "^.*\\bsymfony\\b.*$"
-        ],
         "html": [
             "<!--\\s*symfony"
+        ],
+        "headers": [
+            "symfony"
         ]
     },
     "zendframework": {
@@ -645,7 +726,7 @@
         "link": "https://framework.zend.com/",
         "description": "Zend Framework is an open-source, object-oriented web application framework for PHP. It provides a collection of professional PHP packages that are used to build web applications and services.",
         "headers": [
-            "^.*\\bZend\\b.*$"
+            "\\bZend\\b"
         ]
     },
     "fuelphp": {
@@ -658,7 +739,7 @@
         "developer": "FuelPHP Development Team",
         "description": "FuelPHP is a fast, simple, and flexible PHP 5.3+ web framework with a strong emphasis on community and code usability. It offers an MVC pattern and a hierarchical model-view-controller (HMVC) pattern.",
         "headers": [
-            "^.*\\bFuelPHP\\b.*$"
+            "FuelPHP"
         ]
     },
     "codeigniter": {
@@ -670,12 +751,12 @@
         "link": "https://codeigniter.com/",
         "developer": "British Columbia Institute of Technology",
         "description": "CodeIgniter is an open-source software rapid development web framework, for use in building dynamic web sites with PHP. It's known for its small footprint, exceptional performance, and clear documentation.",
-        "html": [
-            "<script[^>]*\\bcodeigniter.*?>"
-        ],
         "selectors": [
             "script[src*='codeigniter']",
             "meta[name='generator'][content*='CodeIgniter']"
+        ],
+        "headers": [
+            "CodeIgniter"
         ]
     },
     "yii": {
@@ -688,13 +769,16 @@
         "developer": "Yii Development Team",
         "description": "Yii is a high-performance, component-based PHP framework for rapidly developing large-scale Web applications. It promotes clean, DRY (Don't Repeat Yourself) code and comes with a rich set of features.",
         "html": [
-            "<script[^>]*\\byii[.]js",
-            "\\byiiBaseUrl\\b"
+            "yiiBaseUrl",
+            "yiiSearchVersion"
         ],
         "selectors": [
             "script[src*='yii.js']",
             "script[src*='yii-']",
             "meta[name='generator'][content*='Yii']"
+        ],
+        "headers": [
+            "\\bYii\\b"
         ]
     },
     "prado": {
@@ -714,6 +798,9 @@
         "selectors": [
             "input[name='PRADO_PAGESTATE']",
             "script[src*='prado']"
+        ],
+        "headers": [
+            "\\bPRADO\\b"
         ]
     },
     "laravel": {
@@ -725,15 +812,11 @@
         "link": "https://laravel.com/",
         "description": "Laravel is a free and open-source GPL-licensed PHP web framework, designed for the development of web applications following the model-view-controller (MVC) architectural pattern. It's known for its elegant syntax, extensive features, and large community support.",
         "developer": "Taylor Otwell",
-        "html": [
-            "<meta\\s+name=\"generator\"\\s+content=\"laravel\""
-        ],
         "headers": [
-            "^.*\\blaravel\\b.*$"
+            "\\blaravel"
         ],
         "selectors": [
             "meta[name='generator'][content*='Laravel']",
-            "meta[name='csrf-token']",
             "script[src*='laravel']"
         ]
     },
@@ -751,7 +834,7 @@
             "\\bdata-drupal-[\\w-]+"
         ],
         "headers": [
-            "^.*\\bdrupal.*$"
+            "\\bdrupal"
         ],
         "selectors": [
             "[data-drupal-selector]",
@@ -768,17 +851,15 @@
             "cms"
         ],
         "link": "https://typo3.org/",
-        "developer": "TYPO3 Association",
-        "html": [
-            "\\btypo3-universal\\b"
-        ],
+        "developer": "TYPO3 GmbH",
         "headers": [
-            "^.*\\btypo3.*$"
+            "\\btypo3"
         ],
         "selectors": [
             "meta[name='generator'][content*='TYPO3']",
             "script[src*='typo3']",
-            "link[href*='typo3']"
+            "link[href*='typo3']",
+            "typo3-universal"
         ]
     },
     "joomla": {
@@ -791,15 +872,13 @@
         ],
         "link": "https://www.joomla.org/",
         "developer": "Open Source Matters, Inc.",
-        "html": [
-            "joomla-custom-elements",
-            "joomla-script-options"
-        ],
         "headers": [
-            "^.*\\bjoomla.*$"
+            "\\bjoomla"
         ],
         "selectors": [
-            "script[type='application/json'][class='joomla-script-options']",
+            "script[src*='joomla']",
+            "script[class*='joomla-script-options']",
+            "link[href*='joomla']",
             "meta[name='generator'][content*='Joomla']"
         ]
     },
@@ -813,11 +892,37 @@
         "developer": "Django Software Foundation",
         "description": "Django is a high-level Python web framework that encourages rapid development and clean, pragmatic design. It is built on the \"Don't Repeat Yourself\" (DRY) principle and provides a comprehensive set of tools and features for building complex, database-driven web applications quickly. Django is known for its \"batteries included\" approach, offering an ORM, admin panel, and authentication system out-of-the-box.",
         "headers": [
-            "^.*\\bDjango\\b.*$"
+            "\\bDjango"
         ],
         "selectors": [
             "input[name='csrfmiddlewaretoken']",
             "script[src*='django']"
+        ]
+    },
+    "flask": {
+        "name": "Flask",
+        "tags": [
+            "web_framework",
+            "python"
+        ],
+        "link": "https://flask.palletsprojects.com/",
+        "developer": "Pallets",
+        "description": "Flask is a lightweight, flexible, and extensible Python web framework for building web applications. It follows the micro-framework philosophy, providing only the essentials while allowing developers to choose their own tools and libraries. Flask is known for its simplicity, ease of learning, and ability to quickly prototype and deploy web applications.",
+        "headers": [
+            "\\bFlask"
+        ]
+    },
+    "spring": {
+        "name": "Spring Framework",
+        "tags": [
+            "web_framework",
+            "java"
+        ],
+        "link": "https://spring.io/",
+        "developer": "VMWare Tanzu",
+        "description": "Spring Framework is a comprehensive, open-source Java framework for building enterprise-grade applications. It provides infrastructure support for developing Java applications with features like dependency injection, aspect-oriented programming, and transaction management. Spring is widely used for building RESTful web services, microservices, and complex enterprise applications, offering a robust ecosystem including Spring Boot, Spring Cloud, and Spring Data.",
+        "headers": [
+            "\\bspring"
         ]
     },
     "reflex": {
@@ -829,13 +934,12 @@
         "link": "https://reflex.dev/",
         "developer": "Anyscale",
         "description": "Reflex.dev is an open-source, full-stack Python framework for web applications, integrating frontend and backend logic in Python. It utilizes an event-driven architecture and compiles the frontend into a React-based single-page application, with a backend built on FastAPI. Reflex seeks to simplify web development for Python developers using a single-language solution, avoiding the need for JavaScript or web development expertise. Reflex additionally provides a hosting service, Reflex Cloud, offering custom domains and website analytics. Reviews commend Reflex for its ease of use, speed, and consolidation of frameworks.",
-        "html": [
-            "<script[^>]*_reflex/\\b",
-            "<script[^>]*\\breflex_client[.]js"
-        ],
         "selectors": [
-            "script[src*='_reflex/']",
+            "script[src*='_reflex']",
             "script[src*='reflex_client.js']"
+        ],
+        "headers": [
+            "\\breflex"
         ]
     },
     "masonite": {
@@ -848,7 +952,7 @@
         "link": "https://docs.masoniteproject.com/",
         "developer": "Masonite Community",
         "headers": [
-            "^.*\\bMasonite\\b.*$"
+            "Masonite"
         ],
         "selectors": [
             "script[src*='masonite']",
@@ -865,7 +969,7 @@
         "link": "https://turbogears.org/",
         "developer": "TurboGears Community",
         "headers": [
-            "^.*\\bTurboGears\\b.*$"
+            "TurboGears"
         ],
         "html": [
             "<!--\\s*TurboGears\\s*-->"
@@ -885,13 +989,9 @@
         "developer": "Massimo Di Pierro",
         "description": "web2py is a free, open-source web framework for agile development, written in Python. It emphasizes simplicity and ease of use, offering a complete development environment including a web server, database abstraction layer, and IDE. web2py focuses on security, automatically preventing common vulnerabilities like cross-site scripting and SQL injection.",
         "headers": [
-            "^.*\\bweb2py\\b.*$"
-        ],
-        "html": [
-            "<script[^>]*web2py[^>]*\\.js"
+            "\\bweb2py"
         ],
         "selectors": [
-            "script[src*='web2py.js']",
             "script[src*='web2py']"
         ]
     },
@@ -903,13 +1003,19 @@
         "description": "Framer is a design and prototyping tool that also functions as a web development framework, allowing designers to build interactive prototypes and functional websites with React components. It bridges the gap between design and code, enabling the creation of high-fidelity user interfaces with real data and complex interactions. Framer aims to streamline the handover from design to development.",
         "link": "http://www.framer.com/",
         "developer": "Framer B.V.",
-        "html": [
-            "Built with Framer",
-            "<meta[^>]*framerusercontent[.]com[^>]*>"
-        ],
         "selectors": [
+            "meta[name='generator'][content*='Framer']",
+            "meta[name='framer-search-index']",
             "meta[content*='framerusercontent.com']",
-            "script[src*='framer']"
+            "script[src*='framer']",
+            "[data-framer-css-ssr-minified]",
+            "[data-framer-components]",
+            "[data-framer-css]",
+            "[data-framer-hydrate-v2]",
+            "[data-framer-generated-page]"
+        ],
+        "headers": [
+            "\\bframer\\b"
         ]
     },
     "squarespace": {
@@ -921,7 +1027,7 @@
         "developer": "Squarespace, Inc.",
         "description": "Squarespace is a popular website builder and hosting service that allows individuals and businesses to create professional-looking websites without coding. It offers a drag-and-drop interface, customizable templates, and integrated e-commerce functionalities, making it easy to build portfolios, online stores, and blogs. Squarespace focuses on design aesthetics and user-friendliness.",
         "headers": [
-            "^.*\\bSquarespace\\b.*$"
+            "Squarespace"
         ],
         "selectors": [
             "script[src*='squarespace']",
@@ -937,15 +1043,14 @@
         "developer": "Unbounce Marketing Solutions Inc.",
         "description": "Unbounce is a landing page platform that enables marketers to build, publish, and A/B test custom landing pages without IT hassle. It provides a drag-and-drop builder, a wide range of templates, and conversion optimization tools to help businesses generate leads and sales. Unbounce is designed to empower marketers to create high-converting campaigns quickly.",
         "headers": [
-            "^.*\\bUnbounce\\b.*$"
+            "Unbounce"
         ],
         "html": [
-            "\\bub-page-overlay",
             "\\bunbounce[.]com/\\w+/"
         ],
         "selectors": [
             "script[src*='unbounce.com']",
-            "div[class*='ub-page-overlay']"
+            "[class*='ub-page-overlay']"
         ]
     },
     "webflow": {
@@ -958,11 +1063,7 @@
         "developer": "Webflow, Inc.",
         "description": "Webflow is a no-code visual web design and CMS platform that allows users to design, build, and launch responsive websites without writing code. It provides a drag-and-drop interface, built-in CMS, and hosting capabilities, making it a popular choice for designers and marketers.",
         "headers": [
-            "^x-powered-by: Webflow"
-        ],
-        "html": [
-            "\\bwebflow[.]js",
-            "\\bdata-wf-page\\b"
+            "\\bWebflow"
         ],
         "selectors": [
             "script[src*='webflow.js']",
@@ -979,11 +1080,7 @@
         "link": "https://www.wix.com/",
         "developer": "Wix.com Ltd.",
         "headers": [
-            "^x-wix-request-id.*$"
-        ],
-        "html": [
-            "\\bwix[.]com/",
-            "static[.]parastorage[.]com"
+            "\\bwix\\b"
         ],
         "selectors": [
             "script[src*='wix.com']",
@@ -1001,16 +1098,12 @@
         "link": "https://wordpress.com/",
         "developer": "WordPress.com",
         "headers": [
-            "^.*\\bWordPress\\b.*$"
-        ],
-        "html": [
-            "\\bwp-content",
-            "\\bwp-includes",
-            "<link[^>]*wp-emoji-release[.]min[.]js"
+            "\\bWordPress"
         ],
         "selectors": [
             "link[href*='wp-content']",
             "link[href*='wp-includes']",
+            "link[href*='wp-emoji-release']",
             "script[src*='wp-content']",
             "script[src*='wp-includes']",
             "meta[name='generator'][content*='WordPress']"
