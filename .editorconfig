@@ -1,0 +1,18 @@
+# top-most EditorConfig file
+root = true
+
+# Generic settings for all files (*)
+[*]
+indent_style = space
+indent_size = 2
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# Settings for JS files (JavaScript)
+[*.{js,jsx,ts,tsx}]
+max_line_length = 100
+
+# Settings for MD files (Markdown)
+[*.md]
+max_line_length = 100
