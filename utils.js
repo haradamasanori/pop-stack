@@ -19,13 +19,13 @@ export function devError(...messages) {
 }
 
 export function log(...messages) {
-    console.log('WebStackSpy:', ...messages);
+    console.log('pop-stack:', ...messages);
 }
 
 export function logWarn(...messages) {
-    console.warn('WebStackSpy:', ...messages);
+    console.warn('pop-stack:', ...messages);
 }
 
 export function logError(...messages) {
-    console.error('WebStackSpy:', ...messages);
+    console.error('pop-stack:', ...messages);
 }

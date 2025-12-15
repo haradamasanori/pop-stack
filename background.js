@@ -59,7 +59,8 @@ async function loadConfig() {
       }
     }
     ipRangeConfigs = tmpIpRangeConfigs;
-    devLog('Background: IP range configs loaded for', Object.keys(tmpIpRangeConfigs).length, 'providers');
+    devLog('Background: IP range configs loaded for',
+      Object.keys(tmpIpRangeConfigs).length, 'providers');
   }
 
   return { techConfig, ipRangeConfigs };
@@ -314,7 +315,8 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
   return headerComponents;
 }
 
-// Detect httpComponents from headers from fetch() in the content script. Pass them along to the side panel.
+// Detect httpComponents from headers from fetch() in the content script. Pass them along to the
+// side panel.
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   devLog('Background: chrome.runtime.onMessage received', { message, sender });
   if (message.action === 'fetchedHeaders') {
@@ -330,10 +332,10 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 // It seems the temporary host permission granted by 'activeTab' can be used only in two ways:
 // 1. chrome.action.onClicked handler.
 // 2. scripts in the popup opened automatically with action click.
-// Sidepanel can be opened automatically with action click too if we use openPanelOnActionClick: true.
-// However, it doesn't seem to get the activeTab permission. So we open the sidepanel programmatically
-// in the onClicked handler. We set openPanelOnActionClick to false and don't use "side_panel" in the
-// manifest to disable automatic sidepanel opening.
+// Sidepanel can be opened automatically with action click too if we use
+// openPanelOnActionClick: true. However, it doesn't seem to get the activeTab permission. Thus we
+// open the sidepanel programmatically in the onClicked handler. We set openPanelOnActionClick to
+// false and don't use "side_panel" in the manifest to disable automatic sidepanel opening.
 try {
   chrome.action.onClicked.addListener((tab) => {
     devLog('onClicked: listener begin', tab);
@@ -358,20 +360,27 @@ try {
             devLog('onClicked: IP detection results:', ipComponents);
             // Send results if the sidepanel is still open.
             if (readyPanels.has(details.tabId)) {
-              chrome.runtime.sendMessage({ action: 'ipResults', tabId: details.tabId, targetUrl: details.url, ipComponents });
+              chrome.runtime.sendMessage({
+                action: 'ipResults', tabId: details.tabId,
+                targetUrl: details.url, ipComponents
+              });
             }
           }).catch((error) => {
             logWarn('onClicked: IP detection failed:', error);
           });
         }
         if (details.responseHeaders) {
-          detectTechnologiesFromHeaders(details.tabId, details.responseHeaders, details.url).then((headerComponents) => {
-            devLog('onClicked: Header detection results:', headerComponents);
-            // Send results if the sidepanel is still open.
-            if (readyPanels.has(details.tabId)) {
-              chrome.runtime.sendMessage({ tabId: details.tabId, targetUrl: details.url, action: 'headerResults', headerComponents });
-            }
-          });
+          detectTechnologiesFromHeaders(details.tabId, details.responseHeaders, details.url).then(
+            (headerComponents) => {
+              devLog('onClicked: Header detection results:', headerComponents);
+              // Send results if the sidepanel is still open.
+              if (readyPanels.has(details.tabId)) {
+                chrome.runtime.sendMessage({
+                  tabId: details.tabId, targetUrl: details.url,
+                  action: 'headerResults', headerComponents
+                });
+              }
+            });
         }
       },
         {
@@ -384,7 +393,8 @@ try {
         // This option is needed for responseHeaders analysis above.
         ['responseHeaders']);
       if (chrome.runtime.lastError) {
-        logError('onClicked: webRequest.onCompleted failed to add listener', chrome.runtime.lastError);
+        logError('onClicked: webRequest.onCompleted failed to add listener',
+          chrome.runtime.lastError);
       } else {
         devLog('onClicked: webRequest.onCompleted listener registered for IP detection');
       }
@@ -401,9 +411,10 @@ try {
     });
     // Open sidepanel creating tab-specific sidepanel instance.
     // Known issue: action click sometimes doesn't open sidebar if the current page is still loading.
-    chrome.sidePanel.setOptions({ tabId: tab.id, path: 'sidepanel.html', enabled: true }).catch((err) => {
-      logWarn('onClicked: sidePanel.setOptions failed before opening sidepanel', err);
-    });
+    chrome.sidePanel.setOptions({ tabId: tab.id, path: 'sidepanel.html', enabled: true }).catch(
+      (err) => {
+        logWarn('onClicked: sidePanel.setOptions failed before opening sidepanel', err);
+      });
     chrome.sidePanel.open({ tabId: tab.id }).then(() => {
       readyPanels.add(tab.id);
       devLog('onClicked: sidePanel opened for tab', tab.id);

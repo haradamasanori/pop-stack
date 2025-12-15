@@ -1,8 +1,8 @@
-# WebStackSpy
+# Popular Stacks
 
 ## Overview
 
-WebStackSpy is Google Chrome extension that tells users what frameworks, libraries, servers, and
+Popular Stacks is Google Chrome extension that tells users what frameworks, libraries, servers, and
 other web technologies are used to build the current web page they're viewing. By analyzing the
 current HTML content, HTTP headers, and IP addresses, it provides insights into its underlying
 technology stack.
@@ -21,8 +21,8 @@ technology stack.
 
 ## Technology Detection
 
-WebStackSpy detects a variety of technologies across different categories. Here's a summary based on
-the current configuration:
+Popular Stacks detects a variety of technologies across different categories. Here's a summary based
+on the current configuration:
 
  Category       | Examples
 --------------- | -------------------------------------------------------------
@@ -35,8 +35,8 @@ CMS             | WordPress, Drupal
 
 ## Config Data Format
 
-WebStackSpy uses a set of JSON files in the `config/` directory. These files contain collections of
-technology definitions, each with a set of rules for detection.
+Popular Stacks uses a set of JSON files in the `config/` directory. These files contain collections
+of technology definitions, each with a set of rules for detection.
 
 Each technology entry of `config.json` can have the following detection patterns:
 
@@ -65,7 +65,7 @@ Each technology entry of `config.json` can have the following detection patterns
 IP address information is loaded separately from JSON files in the `config/` directory (e.g.,
 `ip-aws.json`). Different files contain lists of IP ranges for different cloud providers.
 
-When analyzing a page, WebStackSpy's content script (`content.js`) scans the HTML. The service
+When analyzing a page, Popular Stacks's content script (`content.js`) scans the HTML. The service
 workder script (`background.js`) inspects HTTP response headers and the server's IP address,
 checking them against the patterns defined in the configuration files to find matches.
 
@@ -180,3 +180,19 @@ just by visiting a new page and/or re-opening the sidepanel.
 `chrome://extensions` provides entry points to inspect the service worker and sidepanel views using
 the Chrome developer tools. You can right-click the sidepanel html and inspect the extension code
 too.
+
+### License
+
+Copyright 2025 pop-stack.com
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.

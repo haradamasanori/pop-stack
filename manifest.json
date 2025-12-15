@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Web Stack Spy",
+  "name": "Popular Stacks — Web Stack Component Detector",
   "version": "2.0.0",
-  "description": "Analyzes web page content to detect technologies like frameworks and libraries.",
+  "description": "An open-source, privacy-focused, performant extention that analyzes the current page's HTML content/HTTP response headers/IP addresses and determines what frameworks, libraries, servers, cloud providers, and other components used.",
   "permissions": [
     "activeTab",
     "scripting",
@@ -14,7 +14,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "Web Stack Spy"
+    "default_title": "Popular Stacks"
   },
   "icons": {
     "128": "static/pancake128.png",

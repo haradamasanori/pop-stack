@@ -1,12 +1,12 @@
-if (window !== window.top || window.webStackSpyContentScriptInjected) {
+if (window !== window.top || window.pop_stack.ContentScriptInjected) {
   // Avoid running the content script multiple times.
-  console.log('WebStackSpy: content script already exists.', {
+  console.log('pop-stack: content script already exists.', {
     url: window.location.href,
     isMainFrame: window === window.top,
     documentReadyState: document.readyState
   });
 } else {
-  window.webStackSpyContentScriptInjected = true;
+  window.pop_stack.ContentScriptInjected = true;
 
   // Content script cannot use ES Modules directly, so we redefine needed utils here.
   const IS_DEV = !('update_url' in chrome.runtime.getManifest());
@@ -16,10 +16,10 @@ if (window !== window.top || window.webStackSpyContentScriptInjected) {
     }
   }
   function logWarn(...messages) {
-    console.warn('WebStackSpy:', ...messages);
+    console.warn('pop-stack:', ...messages);
   }
   function logError(...messages) {
-    console.error('WebStackSpy:', ...messages);
+    console.error('pop-stack:', ...messages);
   }
 
   let techConfig = null;
@@ -131,7 +131,7 @@ if (window !== window.top || window.webStackSpyContentScriptInjected) {
               let snippet = htmlText.substring(matchStart, matchEnd).trim();
 
               // Clean up the snippet - remove excessive whitespace and newlines
-              snippet = snippet.replace(/\s+/g, ' ').replace(/[<>]/g, '');
+              snippet = snippet.replace(/\s+/g, ' ');
 
               // Truncate if still too long
               if (snippet.length > 150) {
@@ -185,7 +185,7 @@ if (window !== window.top || window.webStackSpyContentScriptInjected) {
       // Fetch the page within content script. This enables getting IP info with webRequest.onComplete in background.js.
       // fetch() can be called in the service worker too but the IP field is missing in the response.
       fetch(tabUrl).then((response) => {
-        devLog('WebStackSpy: Fetched the current page in content.js', response);
+        devLog('pop-stack: Fetched the current page in content.js', response);
         const headers = [];
         for (const [key, value] of response.headers) {
           headers.push({ name: key, value });
@@ -211,10 +211,10 @@ if (window !== window.top || window.webStackSpyContentScriptInjected) {
   }).catch((error) => {
     logError('Error loading config in content script:', error);
   });
-  devLog('WebStackSpy: content script loaded successfully', {
+  devLog('pop-stack: content script loaded successfully', {
     url: window.location.href,
     isMainFrame: window === window.top,
     documentReadyState: document.readyState
   });
 
-}  // window !== window.top || window.webStackSpyContentScriptInjected
+}  // window !== window.top || window.pop_stack.ContentScriptInjected

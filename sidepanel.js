@@ -335,7 +335,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // Theme management functions
 function initializeTheme() {
-  const savedTheme = localStorage.getItem('web-stack-spy-theme') || 'light';
+  const savedTheme = localStorage.getItem('pop-stack-theme') || 'light';
   setTheme(savedTheme);
 }
 
@@ -345,7 +345,7 @@ function setTheme(theme) {
   const darkIcon = document.getElementById('theme-icon-dark');
 
   htmlElement.setAttribute('data-theme', theme);
-  localStorage.setItem('web-stack-spy-theme', theme);
+  localStorage.setItem('pop-stack-theme', theme);
 
   if (theme === 'dark') {
     lightIcon.style.display = 'none';
