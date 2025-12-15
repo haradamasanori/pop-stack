@@ -1,4 +1,22 @@
 {
+    "alpinejs": {
+        "name": "Alpine.js",
+        "description": "Alpine.js is a lightweight JavaScript framework that provides a minimal and expressive way to add interactivity to web pages. It is designed to be easy to learn and use, allowing developers to create dynamic user interfaces with minimal code. Alpine.js is often compared to larger frameworks like Vue.js and React, but it focuses on simplicity and small size, making it ideal for adding interactivity to static HTML pages.",
+        "tags": [
+            "web_framework",
+            "javascript"
+        ],
+        "link": "https://alpinejs.dev/",
+        "developer": "Caleb Porzio",
+        "selectors": [
+            "script[src*='alpinejs']",
+            "[x-html]"
+        ],
+        "html": [
+            "\\bx-on:click=",
+            "\\bx-bind:class="
+        ]
+    },
     "angular": {
         "name": "Angular",
         "description": "Angular is a comprehensive, open-source web application framework developed and maintained by Google LLC for building modern, scalable, and high-performance single-page applications (SPAs). It is a complete platform that uses a component-based architecture and TypeScript, a statically-typed superset of JavaScript, to enhance code quality and maintainability.",
@@ -13,7 +31,6 @@
             "script[src*='angular']",
             "[ng-version]",
             "[ng-app-id]",
-            "app-root",
             "router-outlet",
             "#ng-state"
         ],
@@ -66,7 +83,8 @@
         "link": "https://emberjs.com/",
         "developer": "Ember Core Team",
         "selectors": [
-            "script[src*='/ember']"
+            "script[src*='/ember']",
+            ".ember-application"
         ],
         "headers": [
             "\\bember"
@@ -137,17 +155,17 @@
             "script[src*='polymer']"
         ]
     },
-    "reactivejs": {
-        "name": "Reactive.js",
-        "description": "Reactive.js is a JavaScript library for reactive programming, which is a programming paradigm that deals with asynchronous data streams. It allows developers to manage and manipulate streams of data over time, making it easier to handle events, asynchronous requests, and other dynamic data. By using concepts like observables and operators, Reactive.js provides a powerful way to compose and transform data streams, leading to more predictable and maintainable code for complex, event-driven applications.",
+    "ractivejs": {
+        "name": "Ractive.js",
+        "description": "Ractive.js is a template-driven UI library that transforms templates, styles, and logic into blueprints for highly interactive apps.",
         "tags": [
             "web_framework",
             "javascript"
         ],
         "link": "https://ractive.js.org/",
-        "developer": "ReactiveJS contributors",
+        "developer": "RactiveJS contributors",
         "selectors": [
-            "script[src*='/reactive']"
+            "script[src*='/ractive']"
         ]
     },
     "react": {
@@ -260,14 +278,32 @@
             "\\bsvelte"
         ]
     },
+    "preact": {
+        "name": "Preact",
+        "link": "https://preactjs.com/",
+        "description": "Preact is a fast, lightweight, and efficient JavaScript library for building user interfaces. It is designed to be a smaller alternative to React, providing a similar API and component-based architecture while significantly reducing the size of the library. Preact is ideal for performance-critical applications and projects where minimizing bundle size is a priority.",
+        "tags": [
+            "web_framework",
+            "javascript"
+        ],
+        "developer": "Jason Miller and Preact contributors",
+        "selectors": [
+            "script[type='__PREACT_CLI_DATA__']",
+            "script[src*='/preact']",
+            "#prerender-data"
+        ],
+        "headers": [
+            "\\bpreact\\b"
+        ]
+    },
     "jquery": {
-        "name": "JQuery",
+        "name": "jQuery",
         "link": "https://jquery.com/",
         "description": "jQuery is a fast, small, and feature-rich JavaScript library. It makes things like HTML document traversal and manipulation, event handling, animation, and Ajax much simpler with an easy-to-use API that works across a multitude of browsers.",
         "tags": [
             "javascript"
         ],
-        "developer": "The jQuery Foundation",
+        "developer": "OpenJS Foundation",
         "selectors": [
             "script[src*='jquery']"
         ]
@@ -283,6 +319,56 @@
         "selectors": [
             "link[href*='.scss']",
             "link[href*='.sass']"
+        ]
+    },
+    "webpack": {
+        "name": "Webpack",
+        "link": "https://webpack.js.org/",
+        "description": "Webpack is a powerful and flexible open-source JavaScript module bundler. It takes modules with dependencies and generates static assets representing those modules. Webpack is highly configurable and supports a wide range of plugins and loaders, making it suitable for complex web applications that require efficient asset management and optimization.",
+        "tags": [
+            "build_tool"
+        ],
+        "developer": "",
+        "selectors": [
+            "script[src*='webpack']"
+        ],
+        "html": [
+            "__webpack_require__",
+            "webpackJsonp",
+            "webpackChunk"
+        ]
+    },
+    "parcel": {
+        "name": "Parcel",
+        "link": "https://parceljs.org/",
+        "description": "Parcel is a web application bundler designed to simplify the development process with a zero-configuration setup out of the box. It offers features found in more advanced bundlers while focusing on ease of use, making it ideal for developers seeking a quick start.",
+        "tags": [
+            "build_tool"
+        ],
+        "developer": "",
+        "selectors": [
+            "script[src*='parcel']"
+        ],
+        "html": [
+            "parcelRequire",
+            "parcelHotUpdate"
+        ]
+    },
+    "vite": {
+        "name": "Vite",
+        "link": "https://vite.dev/",
+        "description": "Vite is a modern frontend build tool designed for speed and simplicity. It provides an efficient and streamlined development experience, especially for modern JavaScript frameworks.",
+        "tags": [
+            "build_tool"
+        ],
+        "developer": "",
+        "selectors": [
+            "script[src*='/vite']",
+            "script[src*='@vite']"
+        ],
+        "html": [
+            "\\bvite/client",
+            " data-v-\\w{8}"
         ]
     },
     "ga": {
@@ -332,6 +418,21 @@
             "link[href*='tailwindcss']"
         ]
     },
+    "bootstrap": {
+        "name": "Bootstrap",
+        "description": "Bootstrap is a popular open-source frontend toolkit for developing responsive and mobile-first websites. It provides a collection of CSS and JavaScript tools, including a grid system, pre-designed components, and utilities that help developers quickly create modern web interfaces.",
+        "tags": [
+            "css"
+        ],
+        "link": "https://getbootstrap.com/",
+        "developer": "Bootstrap Authors",
+        "html": [
+        ],
+        "selectors": [
+            "link[href*='bootstrap']",
+            "script[src*='bootstrap']"
+        ]
+    },
     "chakraui": {
         "name": "Chakra UI",
         "description": "Chakra UI is a simple, modular, and accessible component library for React applications. It provides a set of accessible and composable React components that make it easy to build UIs quickly.",
@@ -360,6 +461,100 @@
         "selectors": [
             "script[src*='daisyui']",
             "link[href*='daisyui']"
+        ]
+    },
+    "flyonui": {
+        "description": "FlyonUI is a modern component library built on top of Tailwind CSS. It provides a collection of pre-designed, customizable UI components that help developers quickly build responsive and visually appealing web applications using Tailwind CSS.",
+        "name": "FlyonUI",
+        "tags": [
+            "css"
+        ],
+        "developer": "ThemeSelection",
+        "link": "https://flyonui.com/",
+        "selectors": [
+            "script[src*='flyonui']",
+            "link[href*='flyonui']"
+        ]
+    },
+    "oxbowui": {
+        "description": "Oxbow UI is a modern component library built on top of Tailwind CSS. It provides a collection of pre-designed, customizable UI components that help developers quickly build responsive and visually appealing web applications using Tailwind CSS.",
+        "name": "Oxbow UI",
+        "tags": [
+            "css"
+        ],
+        "developer": "Unwrapped",
+        "link": "https://oxbowui.com/",
+        "selectors": [
+            "script[src*='oxbowui']",
+            "link[href*='oxbowui']"
+        ]
+    },
+    "mantine": {
+        "description": "Mantine is a modern React component library that provides a wide range of customizable and accessible UI components and hooks. It is designed to help developers build responsive and visually appealing web applications quickly and efficiently.",
+        "name": "Mantine",
+        "tags": [
+            "css",
+            "react"
+        ],
+        "developer": "Vitaly Rtishchev",
+        "link": "https://mantine.dev/",
+        "selectors": [
+            "script[src*='mantine']",
+            "link[href*='mantine']"
+        ]
+    },
+    "shadcn": {
+        "description": "shadcn/ui is a collection of accessible, reusable, and composable React components built with Radix UI and styled with Tailwind CSS. It provides a set of pre-designed components that can be easily integrated into React applications to speed up development and ensure consistency in design.",
+        "name": "shadcn/ui",
+        "tags": [
+            "css",
+            "react"
+        ],
+        "developer": "shadcn",
+        "link": "https://ui.shadcn.com/",
+        "selectors": [
+            "script[src*='shadcn']",
+            "link[href*='shadcn']"
+        ]
+    },
+    "preline": {
+        "description": "Preline is a free and open-source UI component library built on top of Tailwind CSS. It provides a collection of pre-designed components and utilities that help developers quickly build responsive and modern web interfaces using Tailwind CSS.",
+        "name": "Preline",
+        "tags": [
+            "css"
+        ],
+        "developer": "Khaled Garbaya",
+        "link": "https://preline.co/",
+        "selectors": [
+            "script[src*='preline']",
+            "link[href*='preline']"
+        ]
+    },
+    "rewindui": {
+        "description": "Rewind-UI is a collection of free and open-source Tailwind CSS components and templates designed to help developers quickly build modern and responsive web interfaces. It provides a variety of pre-designed components that can be easily integrated into Tailwind CSS projects.",
+        "name": "Rewind-UI",
+        "tags": [
+            "css",
+            "react"
+        ],
+        "developer": "Rewind UI contributors",
+        "link": "https://rewindui.com/",
+        "selectors": [
+            "script[src*='rewindui']",
+            "link[href*='rewindui']"
+        ]
+    },
+    "flowbite": {
+        "description": "Flowbite is a free and open-source component library built on top of Tailwind CSS. It provides a collection of pre-designed UI components and interactive elements that help developers quickly build responsive and modern web interfaces using Tailwind CSS.",
+        "name": "Flowbite",
+        "tags": [
+            "css"
+        ],
+        "developer": "Themesberg",
+        "link": "https://flowbite.com/",
+        "selectors": [
+            "script[src*='flowbite']",
+            "link[href*='flowbite']"
         ]
     },
     "htmx": {
@@ -427,6 +622,132 @@
             "\\bapache"
         ]
     },
+    "iis": {
+        "name": "IIS",
+        "link": "https://www.iis.net/",
+        "description": "Internet Information Services (IIS) is a flexible, secure and manageable Web server for hosting anything on the Web. It is developed by Microsoft and commonly used to host ASP.NET applications on Windows servers.",
+        "tags": [
+            "http_server",
+            "windows"
+        ],
+        "developer": "Microsoft Corporation",
+        "headers": [
+            "\\biis\\b"
+        ]
+    },
+    "tomcat": {
+        "name": "Apache Tomcat",
+        "link": "https://tomcat.apache.org/",
+        "description": "Apache Tomcat is an open-source implementation of the Java Servlet, JavaServer Pages, Java Expression Language and Java WebSocket technologies. It is widely used as a servlet container for Java web applications.",
+        "tags": [
+            "http_server",
+            "java"
+        ],
+        "developer": "Apache Software Foundation",
+        "headers": [
+            "\\btomcat",
+            "Apache-Coyote"
+        ]
+    },
+    "jetty": {
+        "name": "Eclipse Jetty",
+        "link": "https://www.eclipse.org/jetty/",
+        "description": "Jetty is a lightweight, embeddable Java HTTP server and servlet container maintained by the Eclipse Foundation. It is commonly embedded in frameworks and applications where a small footprint and easy embedding are desirable.",
+        "tags": [
+            "http_server",
+            "java"
+        ],
+        "developer": "Eclipse Foundation",
+        "headers": [
+            "\\bjetty"
+        ]
+    },
+    "uwsgi": {
+        "name": "uWSGI",
+        "link": "https://uwsgi-docs.readthedocs.io/",
+        "description": "uWSGI is a fast application server for deploying Python (and other language) web applications. It implements the uwsgi protocol and can host WSGI, PSGI, and Rack apps, commonly used behind Nginx or other web servers.",
+        "tags": [
+            "http_server"
+        ],
+        "developer": "uWSGI project",
+        "headers": [
+            "\\buwsgi"
+        ]
+    },
+    "puma": {
+        "name": "Puma",
+        "link": "https://puma.io/",
+        "description": "Puma is a simple, fast, and concurrent Ruby/Rack web server designed for speed and threading. It's widely used to serve Ruby on Rails applications in production.",
+        "tags": [
+            "http_server",
+            "ruby",
+            "rails"
+        ],
+        "developer": "Puma contributors",
+        "headers": [
+            "\\bPuma\\b"
+        ]
+    },
+    "gunicorn": {
+        "name": "Gunicorn",
+        "link": "https://gunicorn.org/",
+        "description": "Gunicorn is a Python WSGI (Web Server Gateway Interface) HTTP server for UNIX-like systems that is used to run web applications and handle concurrent requests by forking multiple worker processes.",
+        "tags": [
+            "http_server"
+        ],
+        "developer": "Benoît Chesneau",
+        "headers": [
+            "\\bgunicorn"
+        ]
+    },
+    "passenger": {
+        "name": "Phusion Passenger",
+        "link": "https://www.phusionpassenger.com/",
+        "description": "Phusion Passenger (Passenger) is an application server that integrates with web servers like Nginx and Apache to serve Ruby, Node.js, Python and other apps. It aims to simplify deployment and improve performance and stability.",
+        "tags": [
+            "http_server"
+        ],
+        "developer": "Phusion B.V.",
+        "headers": [
+            "\\bPassenger"
+        ]
+    },
+    "lighttpd": {
+        "name": "Lighttpd",
+        "link": "https://www.lighttpd.net/",
+        "description": "Lighttpd (lighty) is a secure, fast, and compliant web server designed for high-performance environments. It has a small memory footprint and is often used for static content and proxying to application servers.",
+        "tags": [
+            "http_server"
+        ],
+        "developer": "Lighttpd community",
+        "headers": [
+            "\\bLighttpd"
+        ]
+    },
+    "caddy": {
+        "name": "Caddy",
+        "link": "https://caddyserver.com/",
+        "description": "Caddy is an extensible, HTTP/2-ready web server with automatic HTTPS by default. It's designed for simplicity, security, and performance, and includes features like configuration via a simple Caddyfile and automatic TLS certificate management.",
+        "tags": [
+            "http_server"
+        ],
+        "developer": "Light Code Labs / Caddy maintainers",
+        "headers": [
+            "\\bCaddy"
+        ]
+    },
+    "openresty": {
+        "name": "OpenResty",
+        "link": "https://openresty.org/",
+        "description": "OpenResty (ngx_openresty) is a full-fledged web platform based on Nginx and LuaJIT. It bundles Nginx with many useful Lua libraries and extensions to build scalable web services, APIs, and dynamic web applications.",
+        "tags": [
+            "http_server"
+        ],
+        "developer": "OpenResty Inc.",
+        "headers": [
+            "\\bopenresty"
+        ]
+    },
     "express": {
         "name": "Express",
         "link": "https://expressjs.com/",
@@ -455,8 +776,18 @@
         "developer": "Google LLC",
         "headers": [
             "^server: google",
+            "^server: ESF\\b",
             "^via:.*google",
             "scaffolding on HTTPServer2"
+        ]
+    },
+    "surge": {
+        "name": "Surge",
+        "link": "https://surge.sh/",
+        "developer": "Brock Whitten",
+        "description": "Surge is a static web publishing platform that allows developers to deploy static websites quickly and easily. It provides a simple command-line interface for publishing projects, making it ideal for front-end developers and designers looking to share their work online without complex server setups.",
+        "headers": [
+            "\\bsurge\\b"
         ]
     },
     "vercel": {
@@ -556,6 +887,21 @@
             "heroku"
         ]
     },
+    "firebase": {
+        "name": "Firebase",
+        "link": "https://firebase.google.com/",
+        "description": "Firebase is a platform developed by Google for creating mobile and web applications. It provides a variety of tools and services, including real-time databases, authentication, cloud storage, hosting, and analytics, to help developers build high-quality apps quickly and easily.",
+        "tags": [
+            "cloud"
+        ],
+        "developer": "Google LLC",
+        "domains": [
+            "\\bfirebase"
+        ],
+        "headers": [
+            "\\bfirebase"
+        ]
+    },
     "github": {
         "name": "GitHub",
         "link": "https://github.com/",
@@ -571,6 +917,21 @@
             "github"
         ]
     },
+    "gitlab": {
+        "name": "GitLab",
+        "link": "https://gitlab.com/",
+        "description": "GitLab is a web-based DevOps lifecycle tool that provides a Git repository manager with features such as issue tracking, continuous integration/continuous deployment (CI/CD), and code review. It enables teams to collaborate on software development projects efficiently.",
+        "tags": [
+            "cloud"
+        ],
+        "developer": "GitLab Inc.",
+        "domains": [
+            "\\bgitlab"
+        ],
+        "headers": [
+            "\\bgitlab"
+        ]
+    },
     "gcp": {
         "name": "Google Cloud Platform",
         "tags": [
@@ -584,6 +945,80 @@
             "\\bgcp\\b"
         ]
     },
+    "alibaba": {
+        "name": "Alibaba Cloud",
+        "tags": [
+            "cloud"
+        ],
+        "link": "https://www.alibabacloud.com/",
+        "developer": "Alibaba Group",
+        "description": "Alibaba Cloud provides a suite of global cloud computing services including elastic compute, storage, database, networking, security, and CDN, tailored for enterprises and developers with strong presence in Asia-Pacific.",
+        "headers": [
+            "alibaba",
+            "\bAlicloud"
+        ]
+    },
+    "oracle": {
+        "name": "Oracle Cloud Infrastructure",
+        "tags": [
+            "cloud"
+        ],
+        "link": "https://www.oracle.com/cloud/",
+        "developer": "Oracle Corporation",
+        "description": "Oracle Cloud Infrastructure (OCI) is Oracle's cloud offering with services for compute, storage, networking, databases (Autonomous Database), analytics, and enterprise SaaS, optimized for enterprise workloads and hybrid cloud deployments.",
+        "headers": [
+            "\\boracle"
+        ]
+    },
+    "ibm": {
+        "name": "IBM Cloud",
+        "tags": [
+            "cloud"
+        ],
+        "link": "https://www.ibm.com/cloud",
+        "developer": "IBM Corporation",
+        "description": "IBM Cloud is an enterprise-grade cloud platform providing IaaS, PaaS, and SaaS offerings including virtual servers, Kubernetes, AI/Watson services, and hybrid cloud solutions tailored for business workloads and compliance-sensitive environments."
+    },
+    "digitalocean": {
+        "name": "DigitalOcean",
+        "tags": [
+            "cloud"
+        ],
+        "link": "https://www.digitalocean.com/",
+        "developer": "DigitalOcean, Inc.",
+        "description": "DigitalOcean offers simple, developer-friendly cloud infrastructure and managed services (Droplets, Managed Kubernetes, Managed Databases, object storage) targeted at small-to-medium teams and startups seeking straightforward cloud hosting.",
+        "headers": [
+            "digitalocean",
+            "\\bdo-server",
+            "^X-Gateway: Edge-Gateway",
+            "^X-Do-",
+            "^Do-Upstream-Service-Time"
+        ]
+    },
+    "railway": {
+        "name": "Railway",
+        "tags": [
+            "cloud"
+        ],
+        "link": "https://railway.app/",
+        "developer": "Railway Corp.",
+        "description": "Railway is a cloud platform that simplifies the deployment and management of applications and databases. It provides an intuitive interface and automation tools to help developers focus on building their projects without worrying about infrastructure.",
+        "headers": [
+            "\\brailway"
+        ]
+    },
+    "render": {
+        "name": "Render",
+        "tags": [
+            "cloud"
+        ],
+        "link": "https://render.com/",
+        "developer": "Render Inc.",
+        "description": "Render is a unified cloud platform that makes it easy to build and run applications and websites with free SSL, a global CDN, private networks, and auto-deploys from Git. It aims to simplify the deployment process for developers.",
+        "headers": [
+            "\\brender"
+        ]
+    },
     "aws": {
         "name": "Amazon Web Services",
         "tags": [
@@ -594,7 +1029,8 @@
         "description": "Amazon Web Services (AWS) is a comprehensive, broadly adopted, and widely used cloud platform, offering over 200 fully featured services from data centers globally. It provides a vast array of services for compute, storage, databases, analytics, machine learning, and more.",
         "headers": [
             "\\bAWSALB\\b",
-            "^x-amz-"
+            "^x-amz-",
+            "AmazonS3"
         ]
     },
     "azure": {
@@ -620,6 +1056,7 @@
         "description": "A framework for building web apps and services with .NET and C#.",
         "headers": [
             "\\basp[.]net",
+            "\\bAspnet\\b",
             "\\bkestrel"
         ]
     },
@@ -633,6 +1070,103 @@
         "description": "Akamai Technologies is a content delivery network (CDN) and cloud services company that provides a global network of servers to deliver web content and applications quickly and securely. It focuses on web performance, security, and media delivery.",
         "headers": [
             "\\bAkamai"
+        ]
+    },
+    "keycdn": {
+        "name": "KeyCDN",
+        "link": "https://www.keycdn.com/",
+        "tags": [
+            "cdn"
+        ],
+        "developer": "proinity LLC",
+        "description": "KeyCDN is a high-performance content delivery network (CDN) service designed for developers and businesses. It offers fast content delivery, real-time analytics, and easy integration with a global network of edge servers.",
+        "headers": [
+            "\\bKeyCDN"
+        ]
+    },
+    "bunnycdn": {
+        "name": "BunnyCDN",
+        "link": "https://bunnycdn.com/",
+        "tags": [
+            "cdn"
+        ],
+        "developer": "BunnyCD, Inc.",
+        "description": "BunnyCDN is a cost-effective content delivery network (CDN) with global edge locations. It offers high-performance delivery, video streaming, image optimization, and DDoS protection with competitive pricing.",
+        "headers": [
+            "\\bBunnyCDN"
+        ]
+    },
+    "cachefly": {
+        "name": "CacheFly",
+        "link": "https://www.cachefly.com/",
+        "tags": [
+            "cdn"
+        ],
+        "developer": "CacheFly, Inc.",
+        "description": "CacheFly is a high-performance content delivery network (CDN) specializing in video streaming, large file delivery, and media distribution. It offers predictable pricing, unlimited bandwidth, and support for all file types.",
+        "headers": [
+            "\\bCacheFly"
+        ]
+    },
+    "cdn77": {
+        "name": "CDN77",
+        "link": "https://www.cdn77.com/",
+        "tags": [
+            "cdn"
+        ],
+        "developer": "CDN77, Inc.",
+        "description": "CDN77 is a content delivery network (CDN) service offering fast content delivery, video streaming, image optimization, and DDoS protection with a focus on affordability and ease of use.",
+        "headers": [
+            "\\bCDN77"
+        ]
+    },
+    "cdnetworks": {
+        "name": "CDNetworks",
+        "link": "https://www.cdnetworks.com/",
+        "tags": [
+            "cdn"
+        ],
+        "developer": "CDNetworks, Inc.",
+        "description": "CDNetworks is a global content delivery network (CDN) and web security company providing high-speed content delivery, video streaming, and DDoS protection services across Asia, Europe, and North America.",
+        "headers": [
+            "\\bCDNetworks"
+        ]
+    },
+    "lumen": {
+        "name": "Lumen",
+        "link": "https://www.lumen.com/en-us/home.html",
+        "tags": [
+            "cdn",
+            "cloud"
+        ],
+        "developer": "Lumen Technologies, Inc.",
+        "description": "Lumen (formerly CenturyLink) is a cloud and network infrastructure company providing a range of services including content delivery, edge computing, connectivity, security, and managed services for enterprises and service providers globally.",
+        "headers": [
+            "\\bLumen"
+        ]
+    },
+    "belugacdn": {
+        "name": "BelugaCDN",
+        "link": "https://www.belugacdn.com/",
+        "tags": [
+            "cdn"
+        ],
+        "developer": "BelugaCDN",
+        "description": "BelugaCDN is a content delivery network (CDN) service providing fast content delivery, video streaming, and web acceleration with a focus on performance and reliability.",
+        "headers": [
+            "\\bBeluga"
+        ]
+    },
+    "gcore": {
+        "name": "Gcore",
+        "link": "https://gcore.com/",
+        "tags": [
+            "cdn", "cloud"
+        ],
+        "developer": "G-Core Labs S.A.",
+        "description": "Gcore is a global cloud and edge platform providing a range of services including content delivery, video streaming, DDoS protection, edge computing, cloud infrastructure, and web security solutions for enterprises and developers worldwide.",
+        "headers": [
+            "\\bG-Core|\\bGcore"
         ]
     },
     "netlify": {
@@ -824,14 +1358,13 @@
         "name": "Drupal",
         "description": "Drupal is a free and open-source content management system (CMS) that allows users to easily create, manage, and publish content on the web. It is highly flexible and scalable, making it suitable for a wide range of websites, from personal blogs to large enterprise applications. Drupal is known for its robust features, modularity, and strong community support.",
         "tags": [
-            "web_framework",
             "php",
             "cms"
         ],
         "link": "https://www.drupal.org/",
         "developer": "Drupal Association",
         "html": [
-            "\\bdata-drupal-[\\w-]+"
+            " data-drupal-"
         ],
         "headers": [
             "\\bdrupal"
@@ -846,7 +1379,6 @@
         "name": "TYPO3",
         "description": "TYPO3 is a free and open-source enterprise content management system (CMS) written in PHP. It is known for its extensive feature set, flexibility, and scalability, making it suitable for complex websites and digital platforms. TYPO3 offers powerful multi-site management, workflow capabilities, and a strong focus on security and performance.",
         "tags": [
-            "web_framework",
             "php",
             "cms"
         ],
@@ -866,7 +1398,6 @@
         "name": "Joomla!",
         "description": "Joomla! is a free and open-source content management system (CMS) for publishing web content. It is built on a model-view-controller web application framework and is widely used for various types of websites, including corporate websites, online magazines, e-commerce sites, and social networking platforms. Joomla! offers a user-friendly interface and a large ecosystem of extensions.",
         "tags": [
-            "web_framework",
             "php",
             "cms"
         ],
@@ -923,6 +1454,19 @@
         "description": "Spring Framework is a comprehensive, open-source Java framework for building enterprise-grade applications. It provides infrastructure support for developing Java applications with features like dependency injection, aspect-oriented programming, and transaction management. Spring is widely used for building RESTful web services, microservices, and complex enterprise applications, offering a robust ecosystem including Spring Boot, Spring Cloud, and Spring Data.",
         "headers": [
             "\\bspring"
+        ]
+    },
+    "rails": {
+        "name": "Ruby on Rails",
+        "tags": [
+            "web_framework",
+            "ruby"
+        ],
+        "link": "https://rubyonrails.org/",
+        "developer": "Rails Core Team",
+        "description": "Ruby on Rails (Rails) is a server-side web application framework written in Ruby. It emphasizes convention over configuration (CoC) and the DRY (Don't Repeat Yourself) principle, providing a set of defaults and tools that speed up development of database-backed web applications. Rails includes components for routing, database access (Active Record), and view rendering, and it powers many production web apps and startups.",
+        "headers": [
+            "\\brails\\b"
         ]
     },
     "reflex": {
