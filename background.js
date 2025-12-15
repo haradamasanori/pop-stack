@@ -253,6 +253,9 @@ async function detectTechnologiesFromIP(url, ipAddress) {
   return ipComponents;
 }
 
+const excludedHeaders = new Set(['link', 'content-security-policy',
+  'content-security-policy-report-only', 'x-content-security-policy']);
+
 // Helper function to get all technologies and analyzed URLs for a tab
 // TODO: not checking if this matches with the current url.
 async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
@@ -262,8 +265,13 @@ async function detectTechnologiesFromHeaders(tabId, responseHeaders, url) {
   }
 
   // Convert headers to individual header strings for pattern matching
-  const headerStrings = responseHeaders.filter(h => h.name.toLowerCase() !== 'content-security-policy')
-    .map(h => `${h.name.toLowerCase()}: ${h.value || ''}`);
+  const headerStrings = [];
+  for (const { name, value } of responseHeaders) {
+    const n = name.toLowerCase();
+    if (!excludedHeaders.has(n)) {
+      headerStrings.push(`${n}: ${value || ''}`);
+    }
+  }
 
   // Track detected technologies by key to avoid duplicates
   const detectedTechKeys = new Set();
@@ -321,10 +329,10 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 
 // It seems the temporary host permission granted by 'activeTab' can be used only in two ways:
 // 1. chrome.action.onClicked handler.
-// 2. scripts in the popup opened automatically with action click. 
+// 2. scripts in the popup opened automatically with action click.
 // Sidepanel can be opened automatically with action click too if we use openPanelOnActionClick: true.
-// However, it doesn't seem to get the activeTab permission. So we open the sidepanel programmatically 
-// in the onClicked handler. We set openPanelOnActionClick to false and don't use "side_panel" in the 
+// However, it doesn't seem to get the activeTab permission. So we open the sidepanel programmatically
+// in the onClicked handler. We set openPanelOnActionClick to false and don't use "side_panel" in the
 // manifest to disable automatic sidepanel opening.
 try {
   chrome.action.onClicked.addListener((tab) => {
