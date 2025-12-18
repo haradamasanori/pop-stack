@@ -1,5 +1,0 @@
-@import "tailwindcss";
-@source "*.{html,js}";
-@plugin "daisyui" {
-    themes: all
-}
