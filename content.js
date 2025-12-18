@@ -1,4 +1,4 @@
-if (window !== window.top || window.pop_stack.ContentScriptInjected) {
+if (window !== window.top || window.popstack_ContentScriptInjected) {
   // Avoid running the content script multiple times.
   console.log('pop-stack: content script already exists.', {
     url: window.location.href,
@@ -6,7 +6,7 @@ if (window !== window.top || window.pop_stack.ContentScriptInjected) {
     documentReadyState: document.readyState
   });
 } else {
-  window.pop_stack.ContentScriptInjected = true;
+  window.popstack_ContentScriptInjected = true;
 
   // Content script cannot use ES Modules directly, so we redefine needed utils here.
   const IS_DEV = !('update_url' in chrome.runtime.getManifest());
@@ -217,4 +217,4 @@ if (window !== window.top || window.pop_stack.ContentScriptInjected) {
     documentReadyState: document.readyState
   });
 
-}  // window !== window.top || window.pop_stack.ContentScriptInjected
+}  // window !== window.top || window.popstack_ContentScriptInjected
