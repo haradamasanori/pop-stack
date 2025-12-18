@@ -38,7 +38,7 @@ CMS             | WordPress, Drupal
 Popular Stacks uses a set of JSON files in the `config/` directory. These files contain collections
 of technology definitions, each with a set of rules for detection.
 
-Each technology entry of `config.json` can have the following detection patterns:
+Each technology entry of `stacks.json` can have the following detection patterns:
 
 -   `selectors`: An array of querySelector patterns to match against the current web page's DOM.
 -   `html`: An array of regular expressions to match against the current web page's HTML source.
@@ -159,7 +159,7 @@ initiated from the content script.
     GCP, etc.) from the server's IP address by comparing it against known IP ranges loaded from the
     `config/` directory.
 
-Both background script and content script load `config.json` file to obtain the detection patterns.
+Both background script and content script load `stacks.json` file to obtain the detection patterns.
 We can embed all HTML patterns in the content script if we want to optimize it, but this approach
 seems performant enough.
 

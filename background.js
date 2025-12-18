@@ -10,7 +10,7 @@ let ipRangeConfigs = null;
 async function loadConfig() {
   // Load main technology config
   if (!techConfig) {
-    const configUrl = chrome.runtime.getURL('config.json');
+    const configUrl = chrome.runtime.getURL('config/stacks.json');
     const response = await fetch(configUrl);
     const rawConfig = await response.json();
 

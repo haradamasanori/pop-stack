@@ -28,11 +28,11 @@ if (window !== window.top || window.popstack_ContentScriptInjected) {
   // Load configuration
   async function loadConfig() {
     try {
-      const configUrl = chrome.runtime.getURL('config.json');
+      const configUrl = chrome.runtime.getURL('config/stacks.json');
       const response = await fetch(configUrl);
       techConfig = await response.json();
     } catch (error) {
-      logError('Failed to load config.json:', error);
+      logError('Failed to load stacks.json:', error);
       techConfig = null;
     }
   }

@@ -23,7 +23,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["config.json"],
+      "resources": ["config/stacks.json"],
       "matches": ["https://*/*", "http://*/*"]
     }
   ]
