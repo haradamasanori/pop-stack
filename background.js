@@ -35,20 +35,33 @@ async function loadConfig() {
 
   // Load IP range configs
   if (!ipRangeConfigs) {
-    const providers = ['aws', 'azure', 'cloudflare', 'fastly', 'gcp', 'akamai'];
+    const ipDataFiles = [
+      'aws.json', 'azure.json', 'cloudflare.json', 'fastly.json', 'gcp.json', 'akamai.json',
+      'alibaba.txt', 'digitalocean.csv', 'oracle.json', 'ibm.json'
+    ];
     let tmpIpRangeConfigs = {};
 
-    for (const provider of providers) {
+    for (const ipFile of ipDataFiles) {
+      const lastDotIndex = ipFile.lastIndexOf('.');
+      const provider = ipFile.substring(0, lastDotIndex);
+      const fileExtension = ipFile.substring(lastDotIndex + 1);
+
       try {
-        const ipConfigUrl = chrome.runtime.getURL(`config/${provider}.json`);
+        const ipConfigUrl = chrome.runtime.getURL(`config/${ipFile}`);
         const response = await fetch(ipConfigUrl);
-        const config = await response.json();
+
+        let config;
+        if (fileExtension === 'json') {
+          config = await response.json();
+        } else {
+          config = await response.text();
+        }
 
         // Process and normalize different formats
         const ranges = processIpRangesForProvider(provider, config);
 
         tmpIpRangeConfigs[provider] = {
-          ...config,
+          ...(fileExtension === 'json' ? config : {}),
           normalizedRanges: ranges
         };
 
@@ -122,6 +135,48 @@ function processIpRangesForProvider(provider, config) {
     case 'akamai':
       if (config.ranges) {
         ranges.push(...config.ranges);
+      }
+      break;
+
+    case 'alibaba':
+      if (typeof config === 'string') {
+        ranges.push(...config.split('\n').filter(line => line.trim() !== ''));
+      }
+      break;
+
+    case 'digitalocean':
+      if (typeof config === 'string') {
+        const lines = config.split('\n');
+        lines.forEach(line => {
+          const parts = line.split(',');
+          if (parts.length > 0 && parts[0].trim() !== '') {
+            ranges.push(parts[0].trim());
+          }
+        });
+      }
+      break;
+
+    case 'oracle':
+      if (config.regions) {
+        config.regions.forEach(region => {
+          if (region.cidrs) {
+            region.cidrs.forEach(cidr => {
+              ranges.push(cidr.cidr);
+            });
+          }
+        });
+      }
+      break;
+
+    case 'ibm':
+      if (config.data_centers) {
+        config.data_centers.forEach(dc => {
+          if (dc.cidr_networks) {
+            dc.cidr_networks.forEach(network => {
+              ranges.push(network.cidr_notation);
+            });
+          }
+        });
       }
       break;
   }
