@@ -1,0 +1,20 @@
+**Title:** Popular Stacks - See What Websites Are Built With
+
+**Description:**
+
+Ever wondered what technology a website is using? Popular Stacks is a free Chrome extension that uncovers the web technologies used to build any website you visit.
+
+With a single click, you can identify:
+*   **Frameworks & Libraries:** Discover if a site is built with React, Vue.js, Angular, Django, and more.
+*   **CSS Frameworks:** See if a site uses TailwindCSS, Bootstrap, or other popular styling libraries.
+*   **Servers & CDNs:** Learn about the website's infrastructure, including servers like Nginx and Apache, and content delivery networks (CDNs) like Cloudflare and AWS.
+*   **Analytics & Marketing Tools:** Find out what tools a site uses for tracking and marketing, such as Google Analytics.
+*   **And much more!**
+
+**Why You'll Love Popular Stacks**
+
+*   **For Developers:** A great tool for learning from your favorite websites, researching new technologies, and understanding the latest trends in web development.
+*   **For Marketers & Sales:** Gain insights into a company's tech stack to better tailor your pitch.
+*   **For the Curious:** Satisfy your curiosity about how the web works and what powers the sites you use every day.
+
+Popular Stacks is simple, fast, and easy to use. Install it today and start exploring the web's technology stacks!

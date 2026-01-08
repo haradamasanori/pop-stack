@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Popular Stacks — Web Stack Component Detector",
   "version": "2.0.0",
-  "description": "An open-source, privacy-focused, performant extention that analyzes the current page's HTML content/HTTP response headers/IP addresses and determines what frameworks, libraries, servers, cloud providers, and other components used.",
+  "description": "Analyzes the current page's tech stack, including JS frameworks, HTTP servers, cloud providers and more. Free and open source.",
   "permissions": [
     "activeTab",
     "scripting",
