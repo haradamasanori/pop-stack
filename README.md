@@ -7,17 +7,21 @@ other web technologies are used to build the current web page they're viewing. B
 current HTML content, HTTP headers, and IP addresses, it provides insights into its underlying
 technology stack.
 
+<img src="store/chatgpt.png" alt="screenshot of the extension" width="50%">
+
 ## Features
 
 -   **Comprehensive Technology Detection**: Identifies a wide range of technologies including
     frontend frameworks, CSS libraries, analytics tools, web servers, CDNs, and cloud platforms.
--   **Multiple Detection Methods**: Utilizes various heuristics for detection:
-    -   HTML content scanning for specific tags, scripts, or keywords.
-    -   HTTP header analysis for server signatures and framework-specific headers.
-    -   IP address analysis to identify hosting providers.
+-   **Multiple Detection Methods**:
+    1. HTML content scanning for specific tags, scripts, or keywords.
+    2. HTTP header analysis for server signatures and framework-specific headers.
+    3. IP address analysis to identify hosting providers.
 -   **Detailed Information**: Provides descriptions and official links for each detected technology.
 -   **Configurable**: The detection logic is driven by simple JSON files, making it easy to maintain
     and add new technologies.
+-   **Near-zero performance overhead**: Analysis starts only after user clicks the action button.
+-   **Privacy-focused**: All analysis is performed locally. Uses no external service.
 
 ## Technology Detection
 
@@ -45,21 +49,30 @@ Each technology entry of `stacks.json` can have the following detection patterns
 -   `headers`: An array of regular expressions to match against the HTTP response header fields.
 
 ```json
-"react": {
-    "name": "React",
-    "description": "React is a free and open-source front-end JavaScript library...",
-    "tags": [
-        "web_framework",
-        "javascript"
-    ],
-    "link": "https://reactjs.org/",
-    "developer": "Meta",
-    "html": [
-        "<script[^>]*\\breact[^>]*\\.js",
-        "<div[^>]*data-reactroot>",
-        "<div[^>]*id=\"react-root\""
-    ]
-}
+    "angular": {
+        "name": "Angular",
+        "description": "Angular is a comprehensive, open-source web application framework...",
+        "tags": [
+            "web_framework",
+            "javascript",
+            "typescript"
+        ],
+        "link": "https://angular.dev/",
+        "developer": "Google LLC",
+        "selectors": [
+            "script[src*='angular']",
+            "[ng-version]",
+            "[ng-app-id]",
+            "router-outlet",
+            "#ng-state"
+        ],
+        "html": [
+            "_ngcontent-ng"
+        ],
+        "headers": [
+            "\\bangular"
+        ]
+    },
 ```
 
 IP address information is loaded separately from JSON files in the `config/` directory (e.g.,
@@ -91,11 +104,11 @@ checking them against the patterns defined in the configuration files to find ma
 
 ### The background script
 
-One of the key design choices of this Chrome extension is that it uses the
+One of the key design choices of this Chrome extension is the use of
 [`activeTab` permission](https://developer.chrome.com/docs/extensions/develop/concepts/activeTab).
-It grants the extension access the current active tab's content temporarily. Thanks to the
+It grants the extension temporary access to the current active tab's content. Thanks to the
 `activeTab` permission, this extension doesn't require broad `"<all_urls>"` host permission while
-enabling users to inspect arbitrary web sites.
+enabling users to inspect arbitrary web pages.
 
 `chrome.action.onClicked` listener in `background.js` is the entry point and is the most important
 function of the extension. When the action button is clicked, the listner does the following jobs:
@@ -113,13 +126,13 @@ of the `onClick` listener.
 
 Another key design choice is the use of
 [sitepanel](https://developer.chrome.com/docs/extensions/reference/api/sidePanel) for the user
-interface. It's more common to use popup UIs with
-[page action](https://developer.chrome.com/docs/extensions/reference/api/action), popup has the size
+interface. While it's more common to use a popup with
+[page action](https://developer.chrome.com/docs/extensions/reference/api/action), it has the size
 restriction of 800x600 pixels and can be dismissed a little too easily. The side panel enables the
 bigger and easier to use user interface.
 
 We create a new side panel instance for each tab. A user can open the side panel on multiple tabs in
-multiple windows at the same time. The stateful information is held by the sidepanel script and
+multiple windows simultaneously. The stateful information is held by the sidepanel script and
 HTML. The background script and content script don't keep any stateful information.
 
 The sidepanel script sends `fetchAndAnalyzeHtml` message to the content script to initiate the
@@ -127,11 +140,11 @@ actual analysis. This ensures that the sidepanel is already opened when the anal
 obtained. If we start analysis immediately after content script injection, the sidepanel may not be
 ready yet.
 
-There is no method to programmatically close the side panel. This extension works around it by
-disabling the sidepanel for the active tab. This is why the side panel doesn't close with smooth
-animation.
+Currently Chrome extension API provides no method to programmatically close the side panel.
+This extension works around it by disabling the sidepanel for the active tab. This is why the side
+panel doesn't close with smooth animation.
 
-The user interface is built with **daisyUI** which is a CSS framework based on TailwindCSS.
+The user interface is styled with **daisyUI** which is a CSS framework based on TailwindCSS.
 
 ### The content script
 In order to minimize the impact to browsing performance, this Chrome extension injects the content
@@ -165,7 +178,7 @@ seems performant enough.
 
 ### Development Tips
 
-Since this is a Chrome extension without a build process, Development is done manually by loading
+Since this is a Chrome extension without a build process, development is done manually by loading
 the extension in Chrome developer mode:
 
 -   Navigate to `chrome://extensions`
@@ -181,7 +194,7 @@ just by visiting a new page and/or re-opening the sidepanel.
 the Chrome developer tools. You can right-click the sidepanel html and inspect the extension code
 too.
 
-### License
+## License
 
 Copyright 2025 pop-stack.com
 
